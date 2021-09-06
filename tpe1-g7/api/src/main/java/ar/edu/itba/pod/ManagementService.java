@@ -4,7 +4,7 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 
 public interface ManagementService extends Remote {
-    
+
     // TODO: pasar category a enum, arrojar custom error si ya existe la pista
     void addRunway(final String name, final String category) throws RemoteException;
 
