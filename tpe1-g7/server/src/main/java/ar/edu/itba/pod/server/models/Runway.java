@@ -1,5 +1,6 @@
 package ar.edu.itba.pod.server.models;
 
+import ar.edu.itba.pod.exceptions.NoSuchFlightException;
 import ar.edu.itba.pod.models.RunwayCategory;
 
 import java.util.LinkedList;
@@ -52,5 +53,23 @@ public class Runway {
 
     public void addToQueue(final Flight flight) {
         departureQueue.add(flight);
+    }
+
+    public long getFlightsAhead(final String flightId) throws NoSuchFlightException {
+        long flightsAhead = 0;
+        boolean foundFlight = false;
+
+        for (Flight flight : departureQueue) {
+            if (flight.getId().equals(flightId)) {
+                foundFlight = true;
+                break;
+            }
+            flightsAhead++;
+        }
+
+        if (!foundFlight)
+            throw new NoSuchFlightException();
+        else
+            return flightsAhead;
     }
 }

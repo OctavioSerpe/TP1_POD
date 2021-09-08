@@ -1,6 +1,7 @@
 package ar.edu.itba.pod.server;
 
 import ar.edu.itba.pod.*;
+import ar.edu.itba.pod.exceptions.NoSuchFlightException;
 import ar.edu.itba.pod.exceptions.NoSuchRunwayException;
 import ar.edu.itba.pod.exceptions.RunwayAlreadyExistsException;
 import ar.edu.itba.pod.models.DepartureData;
@@ -18,25 +19,24 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     // TODO: thread-safe
 
     final private Map<String, Runway> runwayMap;
-
     public Servant() {
         runwayMap = new HashMap<>();
     }
 
     @Override
-    public void addRunway(String name, RunwayCategory category) throws RemoteException, RunwayAlreadyExistsException {
+    public void addRunway(final String name, final RunwayCategory category) throws RemoteException, RunwayAlreadyExistsException {
         if (runwayMap.containsKey(name))
             throw new RunwayAlreadyExistsException();
         runwayMap.put(name, new Runway(name, category));
     }
 
     @Override
-    public boolean isRunwayOpen(String runwayName) throws RemoteException, NoSuchRunwayException {
+    public boolean isRunwayOpen(final String runwayName) throws RemoteException, NoSuchRunwayException {
         return Optional.ofNullable(runwayMap.get(runwayName)).map(Runway::isOpen).orElseThrow(NoSuchRunwayException::new);
     }
 
     @Override
-    public void openRunway(String runwayName) throws RemoteException, NoSuchRunwayException, IllegalStateException {
+    public void openRunway(final String runwayName) throws RemoteException, NoSuchRunwayException, IllegalStateException {
         final Runway runway = Optional.ofNullable(runwayMap.get(runwayName)).orElseThrow(NoSuchRunwayException::new);
         if (runway.isOpen())
             throw new IllegalStateException("Runway is already open");
@@ -44,7 +44,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     }
 
     @Override
-    public void closeRunway(String runwayName) throws RemoteException, NoSuchRunwayException, IllegalStateException {
+    public void closeRunway(final String runwayName) throws RemoteException, NoSuchRunwayException, IllegalStateException {
         final Runway runway = Optional.ofNullable(runwayMap.get(runwayName)).orElseThrow(NoSuchRunwayException::new);
         if (!runway.isOpen())
             throw new IllegalStateException("Runway is already closed");
@@ -54,31 +54,50 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     @Override
     public void issueDeparture() throws RemoteException {
         runwayMap.forEach((runwayName, runway) -> {
+            // obtener lock de runway
             if (runway.isOpen() && !runway.getDepartureQueue().isEmpty()) {
-                runway.addToHistory(runway.getDepartureQueue().poll());
+                Flight departureFlight = runway.getDepartureQueue().poll();
+                departureFlight.invokeDepartureCallbacks(runwayName);
+                runway.addToHistory(departureFlight);
             }
-            runway.getDepartureQueue().forEach(Flight::incrementFlightsBeforeDeparture);
+            runway.getDepartureQueue().forEach(flight -> {
+                flight.incrementFlightsBeforeDeparture();
+                flight.invokeQueuePositionUpdateCallbacks(runwayName, runway.getFlightsAhead(flight.getId()));
+            });
         });
     }
 
     @Override
     public void rearrangeDepartures() throws RemoteException {
-
+        //TODO: Invocar callbacks de onRunwayAssignment por cada vuelo reasignado
     }
 
     @Override
-    public void subscribe(FlightTrackingCallbackHandler callbackHandler) throws RemoteException {
+    public void subscribe(final String flightId, final String airlineName, final FlightTrackingCallbackHandler callbackHandler) throws RemoteException {
+        // TODO: Excepcion distinta para cuando no matchea la aerolinea ?
+        // TODO: Excepcion distinta para cuando el vuelo EXISTE en el history pero no en la queue (no esta esperando a despegar) ?
+        Flight flight = runwayMap.values().stream()
+                .flatMap(runway -> runway.getDepartureQueue().stream())
+                .filter(f -> f.getId().equals(flightId) && f.getAirline().equals(airlineName))
+                .findFirst()
+                .orElseThrow(NoSuchFlightException::new);
 
+        flight.addCallbackHandler(callbackHandler);
     }
 
     @Override
     public void requestRunway(final String flightId, final String destinationAirportId, final String airlineName, final RunwayCategory minimumCategory) throws RemoteException, NoSuchRunwayException {
         // TODO: chequear el comparator
+        // TODO: chequear que no exista el vuelo en algun runway
         final Runway runway = runwayMap.values().stream()
                 .filter(r -> r.getCategory().compareTo(minimumCategory) >= 0 && r.isOpen())
                 .min(Comparator.comparing(Runway::getCategory).thenComparing(r -> r.getDepartureQueue().size()))
                 .orElseThrow(NoSuchRunwayException::new);
-        runway.addToQueue(new Flight(runway.getCategory(), flightId, airlineName, destinationAirportId));
+
+        final Flight flight = new Flight(runway.getCategory(), flightId, airlineName, destinationAirportId);
+        runway.addToQueue(flight);
+
+        flight.invokeRunwayAssignmentCallbacks(runway.getName(), runway.getFlightsAhead(flightId));
     }
 
     @Override
@@ -96,7 +115,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     }
 
     @Override
-    public List<DepartureData> getRunwayDepartures(String runwayName) throws RemoteException, NoSuchRunwayException {
+    public List<DepartureData> getRunwayDepartures(final String runwayName) throws RemoteException, NoSuchRunwayException {
         // TODO: es redundante el sorted, chequear
         return Optional.ofNullable(runwayMap.get(runwayName)).orElseThrow(NoSuchRunwayException::new)
                 .getDepartureHistory().stream()
@@ -111,7 +130,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     }
 
     @Override
-    public List<DepartureData> getAirlineDepartures(String airline) throws RemoteException {
+    public List<DepartureData> getAirlineDepartures(final String airline) throws RemoteException {
         return runwayMap.values().stream()
                 .flatMap(runway -> runway.getDepartureHistory().stream()
                         .filter(flight -> flight.getAirline().equals(airline))
