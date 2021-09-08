@@ -58,6 +58,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
             if (runway.isOpen() && !runway.getDepartureQueue().isEmpty()) {
                 Flight departureFlight = runway.getDepartureQueue().poll();
                 departureFlight.invokeDepartureCallbacks(runwayName);
+                departureFlight.setDepartedOn(LocalDateTime.now());
                 runway.addToHistory(departureFlight);
             }
             runway.getDepartureQueue().forEach(flight -> {
@@ -86,7 +87,8 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     }
 
     @Override
-    public void requestRunway(final String flightId, final String destinationAirportId, final String airlineName, final RunwayCategory minimumCategory) throws RemoteException, NoSuchRunwayException {
+    public void requestRunway(final String flightId, final String destinationAirportId, final String airlineName, final RunwayCategory minimumCategory)
+            throws RemoteException, NoSuchRunwayException {
         // TODO: chequear el comparator
         // TODO: chequear que no exista el vuelo en algun runway
         final Runway runway = runwayMap.values().stream()

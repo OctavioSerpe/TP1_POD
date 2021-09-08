@@ -3,7 +3,6 @@ package ar.edu.itba.pod.client;
 import ar.edu.itba.pod.ManagementService;
 import ar.edu.itba.pod.exceptions.NoSuchRunwayException;
 import ar.edu.itba.pod.exceptions.RunwayAlreadyExistsException;
-import ar.edu.itba.pod.models.RunwayCategory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,7 +10,8 @@ import java.net.MalformedURLException;
 import java.rmi.Naming;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
-import java.util.Arrays;
+
+import static ar.edu.itba.pod.client.utils.RunwayCategoryUtils.getRunwayCategory;
 
 public class ManagementClient {
     private static final Logger logger = LoggerFactory.getLogger(Client.class);
@@ -88,16 +88,5 @@ public class ManagementClient {
     private static void checkRunwayIsNotNull(String runway) {
         if (runway == null)
             throw new IllegalArgumentException("Missing runway name. Please specify it with -Drunway=runwayName when running from the command line");
-    }
-
-    private static RunwayCategory getRunwayCategory(String category) {
-        RunwayCategory answer;
-        try {
-            answer = RunwayCategory.valueOf(category);
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid category. Should be one of the next: "
-                    + Arrays.toString(RunwayCategory.values()));
-        }
-        return answer;
     }
 }
