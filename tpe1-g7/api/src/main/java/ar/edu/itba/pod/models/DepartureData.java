@@ -1,8 +1,9 @@
 package ar.edu.itba.pod.models;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
-public class DepartureData {
+public class DepartureData implements Serializable {
 
     // FIXME: por decision de diseño no se expone flight al usuario sino esta clase pojo
     final private long flightsBeforeDeparture;
