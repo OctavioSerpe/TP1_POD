@@ -72,4 +72,8 @@ public class Runway {
         else
             return flightsAhead;
     }
+
+    public long getDepartureQueueSize() {
+        return departureQueue.size();
+    }
 }

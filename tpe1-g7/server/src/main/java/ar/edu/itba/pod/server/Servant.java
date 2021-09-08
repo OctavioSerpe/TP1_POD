@@ -19,6 +19,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     // TODO: thread-safe
 
     final private Map<String, Runway> runwayMap;
+
     public Servant() {
         runwayMap = new HashMap<>();
     }
@@ -89,11 +90,12 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     @Override
     public void requestRunway(final String flightId, final String destinationAirportId, final String airlineName, final RunwayCategory minimumCategory)
             throws RemoteException, NoSuchRunwayException {
-        // TODO: chequear el comparator
-        // TODO: chequear que no exista el vuelo en algun runway
+        // TODO: chequear que no exista el vuelo en algun runway <-- alpedo, no se repiten id de vuelos!
+
         final Runway runway = runwayMap.values().stream()
                 .filter(r -> r.getCategory().compareTo(minimumCategory) >= 0 && r.isOpen())
-                .min(Comparator.comparing(Runway::getCategory).thenComparing(r -> r.getDepartureQueue().size()))
+                .min(Comparator.comparing(Runway::getDepartureQueueSize).thenComparing(Runway::getCategory)
+                        .thenComparing(Runway::getName))
                 .orElseThrow(NoSuchRunwayException::new);
 
         final Flight flight = new Flight(runway.getCategory(), flightId, airlineName, destinationAirportId);
