@@ -63,6 +63,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
             // obtener lock de runway
             if (runway.isOpen() && !runway.getDepartureQueue().isEmpty()) {
                 Flight departureFlight = runway.getDepartureQueue().poll();
+                departureFlight.setDepartedOn(LocalDateTime.now());
 
                 Optional.ofNullable(callbackHandlers.get(departureFlight.getId()))
                         .ifPresent(handlers -> {
@@ -119,13 +120,14 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     }
 
     @Override
-    public void requestRunway(final String flightId, final String destinationAirportId, final String airlineName, final RunwayCategory minimumCategory) throws RemoteException, NoSuchRunwayException {
-        // TODO: chequear el comparator
-        // TODO: chequear que no exista el vuelo en algun runway
-        // TODO: reordenar pistas si no hay espacio
+    public void requestRunway(final String flightId, final String destinationAirportId, final String airlineName, final RunwayCategory minimumCategory)
+            throws RemoteException, NoSuchRunwayException {
+        // TODO: chequear que no exista el vuelo en algun runway <-- alpedo, no se repiten id de vuelos!
+
         final Runway runway = runwayMap.values().stream()
                 .filter(r -> r.getCategory().compareTo(minimumCategory) >= 0 && r.isOpen())
-                .min(Comparator.comparing(Runway::getCategory).thenComparing(r -> r.getDepartureQueue().size()))
+                .min(Comparator.comparing(Runway::getDepartureQueueSize).thenComparing(Runway::getCategory)
+                        .thenComparing(Runway::getName))
                 .orElseThrow(NoSuchRunwayException::new);
 
         final Flight flight = new Flight(runway.getCategory(), flightId, airlineName, destinationAirportId);
