@@ -1,10 +1,13 @@
 package ar.edu.itba.pod;
 
-public interface FlightTrackingCallbackHandler {
+import java.rmi.Remote;
+import java.rmi.RemoteException;
 
-    void onRunwayAssignment(final String flightId, final String runway, final long flightsAhead);
+public interface FlightTrackingCallbackHandler extends Remote {
 
-    void onQueuePositionUpdate(final String flightId, final String runway, final long flightsAhead);
+    void onRunwayAssignment(final String flightId, final String destination, final String runway, final long flightsAhead) throws RemoteException;
 
-    void onDeparture(final String flightId, final String runway);
+    void onQueuePositionUpdate(final String flightId, final String destination, final String runway, final long flightsAhead) throws RemoteException;
+
+    void onDeparture(final String flightId, final String destination, final String runway) throws RemoteException;
 }

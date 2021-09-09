@@ -10,8 +10,9 @@ import ar.edu.itba.pod.server.models.Flight;
 import ar.edu.itba.pod.server.models.Runway;
 
 import java.rmi.RemoteException;
-import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 public class Servant implements ManagementService, DepartureQueryService, FlightTrackingService, RunwayRequestService {
@@ -19,8 +20,13 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     // TODO: thread-safe
 
     final private Map<String, Runway> runwayMap;
+    final private Map<String, List<FlightTrackingCallbackHandler>> callbackHandlers;
+    final private ExecutorService executor;
+
     public Servant() {
         runwayMap = new HashMap<>();
+        callbackHandlers = new HashMap<>();
+        executor = Executors.newCachedThreadPool();
     }
 
     @Override
@@ -57,12 +63,38 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
             // obtener lock de runway
             if (runway.isOpen() && !runway.getDepartureQueue().isEmpty()) {
                 Flight departureFlight = runway.getDepartureQueue().poll();
-                departureFlight.invokeDepartureCallbacks(runwayName);
+
+                Optional.ofNullable(callbackHandlers.get(departureFlight.getId()))
+                        .ifPresent(handlers -> {
+                            handlers
+                                    .forEach(handler -> executor.submit(() -> {
+                                        try {
+                                            handler
+                                                    .onDeparture(departureFlight.getId(), departureFlight.getDestinationAirportId(), runwayName);
+                                        } catch (RemoteException e) {
+                                            // TODO: Manejar excepcion bien
+                                            e.printStackTrace();
+                                        }
+                                    }));
+                            // TODO: Unexport desde el cliente
+                            callbackHandlers.remove(departureFlight.getId());
+                        });
+
                 runway.addToHistory(departureFlight);
             }
             runway.getDepartureQueue().forEach(flight -> {
                 flight.incrementFlightsBeforeDeparture();
-                flight.invokeQueuePositionUpdateCallbacks(runwayName, runway.getFlightsAhead(flight.getId()));
+                Optional.ofNullable(callbackHandlers.get(flight.getId()))
+                        .ifPresent(handlers -> handlers
+                                .forEach(handler -> executor.submit(() -> {
+                                    try {
+                                        handler
+                                                .onQueuePositionUpdate(flight.getId(), flight.getDestinationAirportId(), runwayName, runway.getFlightsAhead(flight.getId()));
+                                    } catch (RemoteException e) {
+                                        // TODO: Manejar excepcion bien
+                                        e.printStackTrace();
+                                    }
+                                })));
             });
         });
     }
@@ -73,7 +105,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     }
 
     @Override
-    public void subscribe(final String flightId, final String airlineName, final FlightTrackingCallbackHandler callbackHandler) throws RemoteException {
+    public void subscribe(final String flightId, final String airlineName, final FlightTrackingCallbackHandler handler) throws RemoteException {
         // TODO: Excepcion distinta para cuando no matchea la aerolinea ?
         // TODO: Excepcion distinta para cuando el vuelo EXISTE en el history pero no en la queue (no esta esperando a despegar) ?
         Flight flight = runwayMap.values().stream()
@@ -82,13 +114,15 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                 .findFirst()
                 .orElseThrow(NoSuchFlightException::new);
 
-        flight.addCallbackHandler(callbackHandler);
+        List<FlightTrackingCallbackHandler> handlers = callbackHandlers.computeIfAbsent(flightId, k -> new LinkedList<>());
+        handlers.add(handler);
     }
 
     @Override
     public void requestRunway(final String flightId, final String destinationAirportId, final String airlineName, final RunwayCategory minimumCategory) throws RemoteException, NoSuchRunwayException {
         // TODO: chequear el comparator
         // TODO: chequear que no exista el vuelo en algun runway
+        // TODO: reordenar pistas si no hay espacio
         final Runway runway = runwayMap.values().stream()
                 .filter(r -> r.getCategory().compareTo(minimumCategory) >= 0 && r.isOpen())
                 .min(Comparator.comparing(Runway::getCategory).thenComparing(r -> r.getDepartureQueue().size()))
@@ -97,7 +131,17 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
         final Flight flight = new Flight(runway.getCategory(), flightId, airlineName, destinationAirportId);
         runway.addToQueue(flight);
 
-        flight.invokeRunwayAssignmentCallbacks(runway.getName(), runway.getFlightsAhead(flightId));
+        Optional.ofNullable(callbackHandlers.get(flight.getId()))
+                .ifPresent(handlers -> handlers
+                        .forEach(handler -> executor.submit(() -> {
+                            try {
+                                handler
+                                        .onRunwayAssignment(flight.getId(), flight.getDestinationAirportId(), runway.getName(), runway.getFlightsAhead(flight.getId()));
+                            } catch (RemoteException e) {
+                                // TODO: Manejar excepcion bien
+                                e.printStackTrace();
+                            }
+                        })));
     }
 
     @Override

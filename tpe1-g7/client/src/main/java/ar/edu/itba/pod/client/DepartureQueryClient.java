@@ -26,6 +26,7 @@ public class DepartureQueryClient {
         String runway = System.getProperty("runway");
         String outPath = System.getProperty("outPath");
 
+        // TODO: Cambiar validaciones a estilo de FlightTrackingClient
         if (serverAddress == null) {
             throw new IllegalArgumentException("Missing server address and port. Please specify them with -DserverAddress=xx.xx.xx.xx:yyyy when running from the command line");
         } else if (outPath == null) {
