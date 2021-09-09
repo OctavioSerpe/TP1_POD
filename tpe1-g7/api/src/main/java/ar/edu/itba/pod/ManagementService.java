@@ -2,6 +2,7 @@ package ar.edu.itba.pod;
 
 import ar.edu.itba.pod.exceptions.NoSuchRunwayException;
 import ar.edu.itba.pod.exceptions.RunwayAlreadyExistsException;
+import ar.edu.itba.pod.models.ReassignmentLog;
 import ar.edu.itba.pod.models.RunwayCategory;
 
 import java.rmi.Remote;
@@ -19,5 +20,5 @@ public interface ManagementService extends Remote {
 
     void issueDeparture() throws RemoteException;
 
-    void rearrangeDepartures() throws RemoteException;
+    ReassignmentLog rearrangeDepartures() throws RemoteException;
 }

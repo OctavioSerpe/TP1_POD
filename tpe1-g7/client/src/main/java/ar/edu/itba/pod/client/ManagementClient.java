@@ -3,6 +3,7 @@ package ar.edu.itba.pod.client;
 import ar.edu.itba.pod.ManagementService;
 import ar.edu.itba.pod.exceptions.NoSuchRunwayException;
 import ar.edu.itba.pod.exceptions.RunwayAlreadyExistsException;
+import ar.edu.itba.pod.models.ReassignmentLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,8 +34,9 @@ public class ManagementClient {
 
         switch (action) {
             case "reorder":
-                //TODO: IMPLEMENTAR
-                service.rearrangeDepartures();
+                ReassignmentLog log = service.rearrangeDepartures();
+                log.getFailed().forEach(f -> System.out.printf("Cannot assign Flight %s.\n", f));
+                System.out.printf("%d flights assigned.\n", log.getAssigned());
                 break;
             case "takeOff":
                 service.issueDeparture();

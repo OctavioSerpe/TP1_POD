@@ -5,11 +5,13 @@ import ar.edu.itba.pod.exceptions.NoSuchFlightException;
 import ar.edu.itba.pod.exceptions.NoSuchRunwayException;
 import ar.edu.itba.pod.exceptions.RunwayAlreadyExistsException;
 import ar.edu.itba.pod.models.DepartureData;
+import ar.edu.itba.pod.models.ReassignmentLog;
 import ar.edu.itba.pod.models.RunwayCategory;
 import ar.edu.itba.pod.server.models.Flight;
 import ar.edu.itba.pod.server.models.Runway;
 
 import java.rmi.RemoteException;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -101,8 +103,28 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     }
 
     @Override
-    public void rearrangeDepartures() throws RemoteException {
-        //TODO: Invocar callbacks de onRunwayAssignment por cada vuelo reasignado
+    public ReassignmentLog rearrangeDepartures() throws RemoteException {
+        List<Flight> flights = new ArrayList<>();
+
+        runwayMap.values().forEach(runway -> {
+            flights.addAll(new ArrayList<>(runway.getDepartureQueue()));
+            runway.getDepartureQueue().clear();
+        });
+
+        ReassignmentLog log = new ReassignmentLog();
+        flights.forEach(flight ->
+        {
+            try {
+                requestRunway(flight.getId(), flight.getDestinationAirportId(),
+                        flight.getAirline(), flight.getCategory());
+                log.incrementAssigned();
+            } catch (RemoteException e) {
+                e.printStackTrace(); //TODO ????? LO HACE OCTA
+            } catch (NoSuchRunwayException e) {
+                log.addToFailed(flight.getId());
+            }
+        });
+        return log;
     }
 
     @Override
