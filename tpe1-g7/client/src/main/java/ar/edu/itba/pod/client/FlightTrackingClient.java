@@ -17,7 +17,7 @@ public class FlightTrackingClient {
 
     public static void main(String[] args) throws MalformedURLException, NotBoundException, RemoteException {
         String serverAddress = System.getProperty("serverAddress");
-        String airline = System.getProperty("airlineName");
+        String airline = System.getProperty("airline");
         String flightId = System.getProperty("flightCode");
 
         String errorMessage = "";
@@ -25,7 +25,7 @@ public class FlightTrackingClient {
             errorMessage += "Missing server address and port. Please specify them with -DserverAddress=xx.xx.xx.xx:yyyy when running from the command line";
         }
         if (airline == null) {
-            errorMessage += "\nMissing airline name. Please specify it with -DairlineName=airlineName when running from the command line";
+            errorMessage += "\nMissing airline name. Please specify it with -Dairline=airlineName when running from the command line";
         }
         if (flightId == null) {
             errorMessage += "\nMissing flight code. Please specify it with -DflightCode=flightCode when running from the command line";
