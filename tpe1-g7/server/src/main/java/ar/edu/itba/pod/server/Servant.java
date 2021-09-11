@@ -148,8 +148,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
         requestRunway(flightId, destinationAirportId, airlineName, minimumCategory, 0);
     }
 
-    @Override
-    public void requestRunway(final String flightId, final String destinationAirportId, final String airlineName,
+    private void requestRunway(final String flightId, final String destinationAirportId, final String airlineName,
                               final RunwayCategory minimumCategory, final long flightsBeforeDeparture)
             throws RemoteException, NoSuchRunwayException {
         final Flight flight =

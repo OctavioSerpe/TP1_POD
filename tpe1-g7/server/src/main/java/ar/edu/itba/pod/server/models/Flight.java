@@ -26,7 +26,7 @@ public class Flight {
         this.id = id;
         this.airline = airline;
         this.destinationAirportId = destinationAirportId;
-        this.flightsBeforeDeparture = 0;
+        this.flightsBeforeDeparture = flightsBeforeDeparture;
     }
 
     public void incrementFlightsBeforeDeparture() {
