@@ -20,7 +20,8 @@ public class Flight {
     private long flightsBeforeDeparture;
     private LocalDateTime departedOn;
 
-    public Flight(final RunwayCategory category, final String id, String airline, final String destinationAirportId) {
+    public Flight(final RunwayCategory category, final String id, String airline, final String destinationAirportId,
+                  final long flightsBeforeDeparture) {
         this.category = category;
         this.id = id;
         this.airline = airline;

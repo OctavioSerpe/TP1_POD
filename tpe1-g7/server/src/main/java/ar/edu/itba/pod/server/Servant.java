@@ -91,8 +91,8 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                         .ifPresent(handlers -> handlers
                                 .forEach(handler -> executor.submit(() -> {
                                     try {
-                                        handler
-                                                .onQueuePositionUpdate(flight.getId(), flight.getDestinationAirportId(), runwayName, runway.getFlightsAhead(flight.getId()));
+                                        handler.onQueuePositionUpdate(flight.getId(), flight.getDestinationAirportId(),
+                                                        runwayName, runway.getFlightsAhead(flight.getId()));
                                     } catch (RemoteException e) {
                                         // TODO: Manejar excepcion bien
                                         e.printStackTrace();
@@ -116,7 +116,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
         {
             try {
                 requestRunway(flight.getId(), flight.getDestinationAirportId(),
-                        flight.getAirline(), flight.getCategory());
+                        flight.getAirline(), flight.getCategory(), flight.getFlightsBeforeDeparture());
                 log.incrementAssigned();
             } catch (RemoteException e) {
                 e.printStackTrace(); //TODO ????? LO HACE OCTA
@@ -128,7 +128,8 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     }
 
     @Override
-    public void subscribe(final String flightId, final String airlineName, final FlightTrackingCallbackHandler handler) throws RemoteException {
+    public void subscribe(final String flightId, final String airlineName, final FlightTrackingCallbackHandler handler)
+            throws RemoteException {
         // TODO: Excepcion distinta para cuando no matchea la aerolinea ?
         // TODO: Excepcion distinta para cuando el vuelo EXISTE en el history pero no en la queue (no esta esperando a despegar) ?
         Flight flight = runwayMap.values().stream()
@@ -142,25 +143,33 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     }
 
     @Override
-    public void requestRunway(final String flightId, final String destinationAirportId, final String airlineName, final RunwayCategory minimumCategory)
-            throws RemoteException, NoSuchRunwayException {
-        // TODO: chequear que no exista el vuelo en algun runway <-- alpedo, no se repiten id de vuelos!
+    public void requestRunway(final String flightId, final String destinationAirportId, final String airlineName,
+                              final RunwayCategory minimumCategory) throws RemoteException, NoSuchRunwayException {
+        requestRunway(flightId, destinationAirportId, airlineName, minimumCategory, 0);
+    }
 
+    @Override
+    public void requestRunway(final String flightId, final String destinationAirportId, final String airlineName,
+                              final RunwayCategory minimumCategory, final long flightsBeforeDeparture)
+            throws RemoteException, NoSuchRunwayException {
+        final Flight flight =
+                new Flight(minimumCategory, flightId, airlineName, destinationAirportId, flightsBeforeDeparture);
+
+        // TODO: chequear que no exista el vuelo en algun runway <-- alpedo, segun enunciado no se repiten id de vuelos!
         final Runway runway = runwayMap.values().stream()
                 .filter(r -> r.getCategory().compareTo(minimumCategory) >= 0 && r.isOpen())
                 .min(Comparator.comparing(Runway::getDepartureQueueSize).thenComparing(Runway::getCategory)
                         .thenComparing(Runway::getName))
                 .orElseThrow(NoSuchRunwayException::new);
 
-        final Flight flight = new Flight(runway.getCategory(), flightId, airlineName, destinationAirportId);
         runway.addToQueue(flight);
 
         Optional.ofNullable(callbackHandlers.get(flight.getId()))
                 .ifPresent(handlers -> handlers
                         .forEach(handler -> executor.submit(() -> {
                             try {
-                                handler
-                                        .onRunwayAssignment(flight.getId(), flight.getDestinationAirportId(), runway.getName(), runway.getFlightsAhead(flight.getId()));
+                                handler.onRunwayAssignment(flight.getId(), flight.getDestinationAirportId(),
+                                        runway.getName(), runway.getFlightsAhead(flight.getId()));
                             } catch (RemoteException e) {
                                 // TODO: Manejar excepcion bien
                                 e.printStackTrace();
