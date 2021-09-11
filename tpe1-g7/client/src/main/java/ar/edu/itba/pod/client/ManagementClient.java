@@ -30,7 +30,7 @@ public class ManagementClient {
         }
 
         logger.info("tpe1-g7 management Starting ...");
-        ManagementService service = (ManagementService) Naming.lookup("//" + serverAddress + "/airport");
+        ManagementService service = (ManagementService) Naming.lookup("//" + serverAddress + "/management");
 
         switch (action) {
             case "reorder":

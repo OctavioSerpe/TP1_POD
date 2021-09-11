@@ -13,20 +13,19 @@ import java.util.concurrent.Callable;
 
 public class Flight {
 
-    final private RunwayCategory category;
     final private String id;
-    final private String airline;
     final private String destinationAirportId;
+    final private String airline;
+    final private RunwayCategory category;
     private long flightsBeforeDeparture;
     private LocalDateTime departedOn;
 
-    public Flight(final RunwayCategory category, final String id, String airline, final String destinationAirportId,
-                  final long flightsBeforeDeparture) {
-        this.category = category;
+    public Flight(String id, String destinationAirportId, String airline, RunwayCategory category) {
         this.id = id;
-        this.airline = airline;
         this.destinationAirportId = destinationAirportId;
-        this.flightsBeforeDeparture = flightsBeforeDeparture;
+        this.airline = airline;
+        this.category = category;
+        this.flightsBeforeDeparture = 0;
     }
 
     public void incrementFlightsBeforeDeparture() {

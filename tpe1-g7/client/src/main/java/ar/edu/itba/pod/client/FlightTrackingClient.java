@@ -37,7 +37,7 @@ public class FlightTrackingClient {
         }
 
         logger.info("tpe1-g7 tracking client Starting ...");
-        final FlightTrackingService service = (FlightTrackingService) Naming.lookup("//" + serverAddress + "/airport");
+        final FlightTrackingService service = (FlightTrackingService) Naming.lookup("//" + serverAddress + "/flight_tracking");
         final FlightTrackingCallbackHandler handler = new LoggerFlightTrackingCallbackHandler();
 
         UnicastRemoteObject.exportObject(handler, 0);

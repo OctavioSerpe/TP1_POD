@@ -92,7 +92,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                                 .forEach(handler -> executor.submit(() -> {
                                     try {
                                         handler.onQueuePositionUpdate(flight.getId(), flight.getDestinationAirportId(),
-                                                        runwayName, runway.getFlightsAhead(flight.getId()));
+                                                runwayName, runway.getFlightsAhead(flight.getId()));
                                     } catch (RemoteException e) {
                                         // TODO: Manejar excepcion bien
                                         e.printStackTrace();
@@ -115,8 +115,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
         flights.forEach(flight ->
         {
             try {
-                requestRunway(flight.getId(), flight.getDestinationAirportId(),
-                        flight.getAirline(), flight.getCategory(), flight.getFlightsBeforeDeparture());
+                requestRunway(flight);
                 log.incrementAssigned();
             } catch (RemoteException e) {
                 e.printStackTrace(); //TODO ????? LO HACE OCTA
@@ -145,18 +144,15 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     @Override
     public void requestRunway(final String flightId, final String destinationAirportId, final String airlineName,
                               final RunwayCategory minimumCategory) throws RemoteException, NoSuchRunwayException {
-        requestRunway(flightId, destinationAirportId, airlineName, minimumCategory, 0);
+        requestRunway(new Flight(flightId, destinationAirportId, airlineName, minimumCategory));
     }
 
-    private void requestRunway(final String flightId, final String destinationAirportId, final String airlineName,
-                              final RunwayCategory minimumCategory, final long flightsBeforeDeparture)
+    private void requestRunway(final Flight flight)
             throws RemoteException, NoSuchRunwayException {
-        final Flight flight =
-                new Flight(minimumCategory, flightId, airlineName, destinationAirportId, flightsBeforeDeparture);
 
         // TODO: chequear que no exista el vuelo en algun runway <-- alpedo, segun enunciado no se repiten id de vuelos!
         final Runway runway = runwayMap.values().stream()
-                .filter(r -> r.getCategory().compareTo(minimumCategory) >= 0 && r.isOpen())
+                .filter(r -> r.getCategory().compareTo(flight.getCategory()) >= 0 && r.isOpen())
                 .min(Comparator.comparing(Runway::getDepartureQueueSize).thenComparing(Runway::getCategory)
                         .thenComparing(Runway::getName))
                 .orElseThrow(NoSuchRunwayException::new);

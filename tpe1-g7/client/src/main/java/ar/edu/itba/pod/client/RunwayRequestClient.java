@@ -36,7 +36,7 @@ public class RunwayRequestClient {
             return;
         }
         logger.info("tpe1-g7 runway request client Starting ...");
-        RunwayRequestService service = (RunwayRequestService) Naming.lookup("//" + serverAddress + "/airport");
+        RunwayRequestService service = (RunwayRequestService) Naming.lookup("//" + serverAddress + "/runway_request");
 
         List<String> lines;
         try {

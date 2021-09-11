@@ -51,7 +51,7 @@ public class DepartureQueryClient {
         }
 
         logger.info("tpe1-g7 departure query Starting ...");
-        DepartureQueryService service = (DepartureQueryService) Naming.lookup("//" + serverAddress + "/airport");
+        DepartureQueryService service = (DepartureQueryService) Naming.lookup("//" + serverAddress + "/departure_query");
 
         List<DepartureData> queryResult;
 
