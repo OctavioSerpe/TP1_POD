@@ -11,6 +11,6 @@ public interface RunwayRequestService extends Remote {
     void requestRunway(final String flightId,
                        final String destinationAirportId,
                        final String airlineName,
-                       final RunwayCategory minimumCategory) throws RemoteException, NoSuchRunwayException;
+                       final RunwayCategory minimumCategory) throws RemoteException, NoSuchRunwayException, InterruptedException;
 
 }

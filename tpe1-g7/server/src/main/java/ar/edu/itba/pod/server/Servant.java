@@ -15,6 +15,9 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
 public class Servant implements ManagementService, DepartureQueryService, FlightTrackingService, RunwayRequestService {
@@ -24,94 +27,198 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     final private Map<String, Runway> runwayMap;
     final private Map<String, List<FlightTrackingCallbackHandler>> callbackHandlers;
     final private ExecutorService executor;
+    final private ReadWriteLock runwayLock;
+    final private ReadWriteLock handlersLock;
+
+    static final private long LOCK_TIMEOUT = 10L;
+    static final private TimeUnit LOCK_TIME_UNIT = TimeUnit.SECONDS;
+    static final private int LOCK_RETRIES = 6;
 
     public Servant() {
         runwayMap = new HashMap<>();
         callbackHandlers = new HashMap<>();
         executor = Executors.newCachedThreadPool();
+        runwayLock = new ReentrantReadWriteLock(true);
+        handlersLock = new ReentrantReadWriteLock(true);
     }
 
     @Override
-    public void addRunway(final String name, final RunwayCategory category) throws RemoteException, RunwayAlreadyExistsException {
-        if (runwayMap.containsKey(name))
-            throw new RunwayAlreadyExistsException();
-        runwayMap.put(name, new Runway(name, category));
-    }
+    public void addRunway(final String name, final RunwayCategory category) throws RemoteException, RunwayAlreadyExistsException, InterruptedException {
+//        final Callable<Void> callable = () -> {
+//            if (runwayMap.containsKey(name))
+//                throw new RunwayAlreadyExistsException();
+//            runwayMap.put(name, new Runway(name, category));
+//            return null;
+//        };
 
-    @Override
-    public boolean isRunwayOpen(final String runwayName) throws RemoteException, NoSuchRunwayException {
-        return Optional.ofNullable(runwayMap.get(runwayName)).map(Runway::isOpen).orElseThrow(NoSuchRunwayException::new);
-    }
-
-    @Override
-    public void openRunway(final String runwayName) throws RemoteException, NoSuchRunwayException, IllegalStateException {
-        final Runway runway = Optional.ofNullable(runwayMap.get(runwayName)).orElseThrow(NoSuchRunwayException::new);
-        if (runway.isOpen())
-            throw new IllegalStateException("Runway is already open");
-        runway.setOpen(true);
-    }
-
-    @Override
-    public void closeRunway(final String runwayName) throws RemoteException, NoSuchRunwayException, IllegalStateException {
-        final Runway runway = Optional.ofNullable(runwayMap.get(runwayName)).orElseThrow(NoSuchRunwayException::new);
-        if (!runway.isOpen())
-            throw new IllegalStateException("Runway is already closed");
-        runway.setOpen(false);
-    }
-
-    @Override
-    public void issueDeparture() throws RemoteException {
-        runwayMap.forEach((runwayName, runway) -> {
-            // obtener lock de runway
-            if (runway.isOpen() && !runway.getDepartureQueue().isEmpty()) {
-                Flight departureFlight = runway.getDepartureQueue().poll();
-                departureFlight.setDepartedOn(LocalDateTime.now());
-
-                Optional.ofNullable(callbackHandlers.get(departureFlight.getId()))
-                        .ifPresent(handlers -> {
-                            handlers
-                                    .forEach(handler -> executor.submit(() -> {
-                                        try {
-                                            handler
-                                                    .onDeparture(departureFlight.getId(), departureFlight.getDestinationAirportId(), runwayName);
-                                        } catch (RemoteException e) {
-                                            // TODO: Manejar excepcion bien
-                                            e.printStackTrace();
-                                        }
-                                    }));
-                            // TODO: Unexport desde el cliente
-                            callbackHandlers.remove(departureFlight.getId());
-                        });
-
-                runway.addToHistory(departureFlight);
+        try {
+            for (int i = 0; i < LOCK_RETRIES; ++i) {
+                if (runwayLock.writeLock().tryLock(LOCK_TIMEOUT, LOCK_TIME_UNIT)) {
+                    if (runwayMap.containsKey(name))
+                        throw new RunwayAlreadyExistsException();
+                    runwayMap.put(name, new Runway(name, category));
+                    return;
+                }
             }
-            runway.getDepartureQueue().forEach(flight -> {
-                flight.incrementFlightsBeforeDeparture();
-                Optional.ofNullable(callbackHandlers.get(flight.getId()))
-                        .ifPresent(handlers -> handlers
-                                .forEach(handler -> executor.submit(() -> {
-                                    try {
-                                        handler.onQueuePositionUpdate(flight.getId(), flight.getDestinationAirportId(),
-                                                runwayName, runway.getFlightsAhead(flight.getId()));
-                                    } catch (RemoteException e) {
-                                        // TODO: Manejar excepcion bien
-                                        e.printStackTrace();
-                                    }
-                                })));
-            });
-        });
+            throw new IllegalStateException("Exceeded lock retries");
+        } finally {
+            runwayLock.writeLock().unlock();
+        }
     }
 
     @Override
-    public ReassignmentLog rearrangeDepartures() throws RemoteException {
+    public boolean isRunwayOpen(final String runwayName) throws RemoteException, NoSuchRunwayException, InterruptedException {
+        try {
+            for (int i = 0; i < LOCK_RETRIES; ++i) {
+                if (runwayLock.readLock().tryLock(LOCK_TIMEOUT, LOCK_TIME_UNIT)) {
+                    return Optional.ofNullable(runwayMap.get(runwayName)).map(Runway::isOpen).orElseThrow(NoSuchRunwayException::new);
+                }
+            }
+            throw new IllegalStateException("Exceeded lock retries");
+        } finally {
+            runwayLock.readLock().unlock();
+        }
+    }
+
+//    private <V> V tryLockWithTimeout(final Callable<V> callable, final Lock lock) throws Exception{
+//        try {
+//            for (int i = 0; i < LOCK_RETRIES; ++i) {
+//                if (lock.tryLock(LOCK_TIMEOUT, LOCK_TIME_UNIT)) {
+//                    return callable.call();
+//                }
+//            }
+//            // TODO: customizar mensaje
+//            throw new IllegalStateException("Exceeded lock retries");
+//        } finally {
+//            lock.unlock();
+//        }
+//    }
+
+    @Override
+    public void openRunway(final String runwayName) throws RemoteException, NoSuchRunwayException, IllegalStateException, InterruptedException {
+        try {
+            for (int i = 0; i < LOCK_RETRIES; ++i) {
+                if (runwayLock.writeLock().tryLock(LOCK_TIMEOUT, LOCK_TIME_UNIT)) {
+                    final Runway runway = Optional.ofNullable(runwayMap.get(runwayName)).orElseThrow(NoSuchRunwayException::new);
+                    if (runway.isOpen())
+                        throw new IllegalStateException("Runway is already open");
+                    runway.setOpen(true);
+                    return;
+                }
+            }
+            throw new IllegalStateException("Exceeded lock retries");
+        } finally {
+            runwayLock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public void closeRunway(final String runwayName) throws RemoteException, NoSuchRunwayException, IllegalStateException, InterruptedException {
+        try {
+            for (int i = 0; i < LOCK_RETRIES; ++i) {
+                if (runwayLock.writeLock().tryLock(LOCK_TIMEOUT, LOCK_TIME_UNIT)) {
+                    final Runway runway = Optional.ofNullable(runwayMap.get(runwayName)).orElseThrow(NoSuchRunwayException::new);
+                    if (!runway.isOpen())
+                        throw new IllegalStateException("Runway is already closed");
+                    runway.setOpen(false);
+                    return;
+                }
+            }
+            throw new IllegalStateException("Exceeded lock retries");
+        } finally {
+            runwayLock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public void issueDeparture() throws RemoteException, InterruptedException {
+        try {
+            for (int i = 0; i < LOCK_RETRIES; ++i) {
+                if (runwayLock.writeLock().tryLock(LOCK_TIMEOUT, LOCK_TIME_UNIT)) {
+                    runwayMap.forEach((runwayName, runway) -> {
+                        // obtener lock de runway
+                        try {
+                            int j;
+                            for (j = 0; j < LOCK_RETRIES; ++j) {
+                                if (handlersLock.writeLock().tryLock(LOCK_TIMEOUT, LOCK_TIME_UNIT)) {
+
+                                    // TODO: lock sobre handlers!!!!!!! (el problema es el codigo estilo html anidado)
+                                    if (runway.isOpen() && !runway.getDepartureQueue().isEmpty()) {
+                                        Flight departureFlight = runway.getDepartureQueue().poll();
+                                        departureFlight.setDepartedOn(LocalDateTime.now());
+
+                                        Optional.ofNullable(callbackHandlers.get(departureFlight.getId()))
+                                                .ifPresent(handlers -> {
+                                                    handlers
+                                                            .forEach(handler -> executor.submit(() -> {
+                                                                try {
+                                                                    handler
+                                                                            .onDeparture(departureFlight.getId(), departureFlight.getDestinationAirportId(), runwayName);
+                                                                } catch (RemoteException e) {
+                                                                    // TODO: Manejar excepcion bien
+                                                                    e.printStackTrace();
+                                                                }
+                                                            }));
+                                                    // TODO: Unexport desde el cliente
+                                                    callbackHandlers.remove(departureFlight.getId());
+                                                });
+
+                                        runway.addToHistory(departureFlight);
+                                    }
+                                    runway.getDepartureQueue().forEach(flight -> {
+                                        flight.incrementFlightsBeforeDeparture();
+                                        Optional.ofNullable(callbackHandlers.get(flight.getId()))
+                                                .ifPresent(handlers -> handlers
+                                                        .forEach(handler -> executor.submit(() -> {
+                                                            try {
+                                                                handler.onQueuePositionUpdate(flight.getId(), flight.getDestinationAirportId(),
+                                                                        runwayName, runway.getFlightsAhead(flight.getId()));
+                                                            } catch (RemoteException e) {
+                                                                // TODO: Manejar excepcion bien
+                                                                e.printStackTrace();
+                                                            }
+                                                        })));
+                                    });
+                                }
+                            }
+                            if (j == LOCK_RETRIES)
+                                throw new IllegalStateException("Exceeded lock retries");
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        } finally {
+                            handlersLock.writeLock().unlock();
+                        }
+                    });
+                }
+            }
+            throw new IllegalStateException("Exceeded lock retries");
+        } finally {
+            runwayLock.writeLock().unlock();
+        }
+
+    }
+
+    @Override
+    public ReassignmentLog rearrangeDepartures() throws RemoteException, InterruptedException {
         List<Flight> flights = new ArrayList<>();
 
-        runwayMap.values().forEach(runway -> {
-            flights.addAll(new ArrayList<>(runway.getDepartureQueue()));
-            runway.getDepartureQueue().clear();
-        });
+        try {
+            int i;
+            for (i = 0; i < LOCK_RETRIES; ++i) {
+                if (runwayLock.writeLock().tryLock(LOCK_TIMEOUT, LOCK_TIME_UNIT)) {
+                    runwayMap.values().forEach(runway -> {
+                        flights.addAll(new ArrayList<>(runway.getDepartureQueue()));
+                        runway.getDepartureQueue().clear();
+                    });
+                }
+            }
+            if (i == LOCK_RETRIES)
+                throw new IllegalStateException("Exceeded lock retries");
+        } finally {
+            runwayLock.writeLock().unlock();
+        }
 
-        ReassignmentLog log = new ReassignmentLog();
+        final ReassignmentLog log = new ReassignmentLog();
         flights.forEach(flight ->
         {
             try {
@@ -121,6 +228,8 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                 e.printStackTrace(); //TODO ????? LO HACE OCTA
             } catch (NoSuchRunwayException e) {
                 log.addToFailed(flight.getId());
+            } catch (InterruptedException e) {
+
             }
         });
         return log;
@@ -128,91 +237,167 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
 
     @Override
     public void subscribe(final String flightId, final String airlineName, final FlightTrackingCallbackHandler handler)
-            throws RemoteException {
-        // TODO: Excepcion distinta para cuando no matchea la aerolinea ?
-        // TODO: Excepcion distinta para cuando el vuelo EXISTE en el history pero no en la queue (no esta esperando a despegar) ?
-        Flight flight = runwayMap.values().stream()
-                .flatMap(runway -> runway.getDepartureQueue().stream())
-                .filter(f -> f.getId().equals(flightId) && f.getAirline().equals(airlineName))
-                .findFirst()
-                .orElseThrow(NoSuchFlightException::new);
+            throws RemoteException, NoSuchFlightException, InterruptedException {
+        try {
+            int i;
+            for (i = 0; i < LOCK_RETRIES; ++i) {
+                if (runwayLock.readLock().tryLock(LOCK_TIMEOUT, LOCK_TIME_UNIT)) {
+                    // TODO: Excepcion distinta para cuando no matchea la aerolinea ?
+                    // TODO: Excepcion distinta para cuando el vuelo EXISTE en el history pero no en la queue (no esta esperando a despegar) ?
+                    // la idea de esta linea es evaluar si el vuelo existe, y si pertenece a la aerolinea
+                    runwayMap.values().stream()
+                            .flatMap(runway -> runway.getDepartureQueue().stream())
+                            .filter(f -> f.getId().equals(flightId) && f.getAirline().equals(airlineName))
+                            .findFirst()
+                            .orElseThrow(NoSuchFlightException::new);
+                }
+            }
+            if (i == LOCK_RETRIES)
+                throw new IllegalStateException("Exceeded lock retries");
+        } finally {
+            runwayLock.readLock().unlock();
+        }
 
-        List<FlightTrackingCallbackHandler> handlers = callbackHandlers.computeIfAbsent(flightId, k -> new LinkedList<>());
-        handlers.add(handler);
+        try {
+            int i;
+            for (i = 0; i < LOCK_RETRIES; ++i) {
+                if (handlersLock.writeLock().tryLock(LOCK_TIMEOUT, LOCK_TIME_UNIT)) {
+                    List<FlightTrackingCallbackHandler> handlers = callbackHandlers.computeIfAbsent(flightId, k -> new LinkedList<>());
+                    handlers.add(handler);
+                }
+            }
+            if (i == LOCK_RETRIES)
+                throw new IllegalStateException("Exceeded lock retries");
+        } finally {
+            handlersLock.writeLock().unlock();
+        }
     }
 
     @Override
     public void requestRunway(final String flightId, final String destinationAirportId, final String airlineName,
-                              final RunwayCategory minimumCategory) throws RemoteException, NoSuchRunwayException {
+                              final RunwayCategory minimumCategory) throws RemoteException, NoSuchRunwayException, InterruptedException {
         requestRunway(new Flight(flightId, destinationAirportId, airlineName, minimumCategory));
     }
 
     private void requestRunway(final Flight flight)
-            throws RemoteException, NoSuchRunwayException {
+            throws RemoteException, NoSuchRunwayException, InterruptedException {
 
-        // TODO: chequear que no exista el vuelo en algun runway <-- alpedo, segun enunciado no se repiten id de vuelos!
-        final Runway runway = runwayMap.values().stream()
-                .filter(r -> r.getCategory().compareTo(flight.getCategory()) >= 0 && r.isOpen())
-                .min(Comparator.comparing(Runway::getDepartureQueueSize).thenComparing(Runway::getCategory)
-                        .thenComparing(Runway::getName))
-                .orElseThrow(NoSuchRunwayException::new);
+        Optional<Runway> maybeRunway = Optional.empty();
+        try {
+            int i;
+            for (i = 0; i < LOCK_RETRIES; ++i) {
+                if (runwayLock.writeLock().tryLock(LOCK_TIMEOUT, LOCK_TIME_UNIT)) {
+                    maybeRunway = runwayMap.values().stream()
+                            .filter(r -> r.getCategory().compareTo(flight.getCategory()) >= 0 && r.isOpen())
+                            .min(Comparator.comparing(Runway::getDepartureQueueSize).thenComparing(Runway::getCategory)
+                                    .thenComparing(Runway::getName));
+                    maybeRunway.orElseThrow(NoSuchRunwayException::new).addToQueue(flight);
+                }
+            }
+            if (i == LOCK_RETRIES)
+                throw new IllegalStateException("Exceeded lock retries");
+        } finally {
+            runwayLock.writeLock().unlock();
+        }
 
-        runway.addToQueue(flight);
+        try {
+            int i;
+            for (i = 0; i < LOCK_RETRIES; ++i) {
+                if (handlersLock.readLock().tryLock(LOCK_TIMEOUT, LOCK_TIME_UNIT)) {
+                    final Runway runway = maybeRunway.orElseThrow(NoSuchRunwayException::new);
+                    Optional.ofNullable(callbackHandlers.get(flight.getId()))
+                            .ifPresent(handlers -> handlers
+                                    .forEach(handler -> executor.submit(() -> {
+                                        try {
+                                            handler.onRunwayAssignment(flight.getId(), flight.getDestinationAirportId(),
+                                                    runway.getName(), runway.getFlightsAhead(flight.getId()));
+                                        } catch (RemoteException e) {
+                                            // TODO: Manejar excepcion bien
+                                            e.printStackTrace();
+                                        }
+                                    })));
+                }
+            }
+            if (i == LOCK_RETRIES)
+                throw new IllegalStateException("Exceeded lock retries");
+        } finally {
+            handlersLock.readLock().unlock();
+        }
 
-        Optional.ofNullable(callbackHandlers.get(flight.getId()))
-                .ifPresent(handlers -> handlers
-                        .forEach(handler -> executor.submit(() -> {
-                            try {
-                                handler.onRunwayAssignment(flight.getId(), flight.getDestinationAirportId(),
-                                        runway.getName(), runway.getFlightsAhead(flight.getId()));
-                            } catch (RemoteException e) {
-                                // TODO: Manejar excepcion bien
-                                e.printStackTrace();
-                            }
-                        })));
+
     }
 
     @Override
-    public List<DepartureData> getAllDepartures() throws RemoteException {
-        return runwayMap.values().stream()
-                .flatMap(runway -> runway.getDepartureHistory().stream()
-                        .map(flight -> new DepartureData(flight.getFlightsBeforeDeparture(),
-                                runway.getName(),
-                                flight.getId(),
-                                flight.getDestinationAirportId(),
-                                flight.getAirline(),
-                                flight.getDepartedOn())))
-                .sorted(Comparator.comparing(DepartureData::getDepartedOn))
-                .collect(Collectors.toList());
+    public List<DepartureData> getAllDepartures() throws RemoteException, InterruptedException {
+        try {
+            int i;
+            for (i = 0; i < LOCK_RETRIES; ++i) {
+                if (runwayLock.readLock().tryLock(LOCK_TIMEOUT, LOCK_TIME_UNIT)) {
+                    return runwayMap.values().stream()
+                            .flatMap(runway -> runway.getDepartureHistory().stream()
+                                    .map(flight -> new DepartureData(flight.getFlightsBeforeDeparture(),
+                                            runway.getName(),
+                                            flight.getId(),
+                                            flight.getDestinationAirportId(),
+                                            flight.getAirline(),
+                                            flight.getDepartedOn())))
+                            .sorted(Comparator.comparing(DepartureData::getDepartedOn))
+                            .collect(Collectors.toList());
+                }
+            }
+            throw new IllegalStateException("Exceeded lock retries");
+        } finally {
+            runwayLock.readLock().unlock();
+        }
     }
 
     @Override
-    public List<DepartureData> getRunwayDepartures(final String runwayName) throws RemoteException, NoSuchRunwayException {
-        // TODO: es redundante el sorted, chequear
-        return Optional.ofNullable(runwayMap.get(runwayName)).orElseThrow(NoSuchRunwayException::new)
-                .getDepartureHistory().stream()
-                .map(flight -> new DepartureData(flight.getFlightsBeforeDeparture(),
-                        runwayName,
-                        flight.getId(),
-                        flight.getDestinationAirportId(),
-                        flight.getAirline(),
-                        flight.getDepartedOn()))
-                .sorted(Comparator.comparing(DepartureData::getDepartedOn))
-                .collect(Collectors.toList());
+    public List<DepartureData> getRunwayDepartures(final String runwayName) throws RemoteException, NoSuchRunwayException, InterruptedException {
+        try {
+            int i;
+            for (i = 0; i < LOCK_RETRIES; ++i) {
+                if (runwayLock.readLock().tryLock(LOCK_TIMEOUT, LOCK_TIME_UNIT)) {
+                    // TODO: es redundante el sorted, chequear
+                    return Optional.ofNullable(runwayMap.get(runwayName)).orElseThrow(NoSuchRunwayException::new)
+                            .getDepartureHistory().stream()
+                            .map(flight -> new DepartureData(flight.getFlightsBeforeDeparture(),
+                                    runwayName,
+                                    flight.getId(),
+                                    flight.getDestinationAirportId(),
+                                    flight.getAirline(),
+                                    flight.getDepartedOn()))
+                            .sorted(Comparator.comparing(DepartureData::getDepartedOn))
+                            .collect(Collectors.toList());
+                }
+            }
+            throw new IllegalStateException("Exceeded lock retries");
+        } finally {
+            runwayLock.readLock().unlock();
+        }
     }
 
     @Override
-    public List<DepartureData> getAirlineDepartures(final String airline) throws RemoteException {
-        return runwayMap.values().stream()
-                .flatMap(runway -> runway.getDepartureHistory().stream()
-                        .filter(flight -> flight.getAirline().equals(airline))
-                        .map(flight -> new DepartureData(flight.getFlightsBeforeDeparture(),
-                                runway.getName(),
-                                flight.getId(),
-                                flight.getDestinationAirportId(),
-                                flight.getAirline(),
-                                flight.getDepartedOn())))
-                .sorted(Comparator.comparing(DepartureData::getDepartedOn))
-                .collect(Collectors.toList());
+    public List<DepartureData> getAirlineDepartures(final String airline) throws RemoteException, InterruptedException {
+        try {
+            int i;
+            for (i = 0; i < LOCK_RETRIES; ++i) {
+                if (runwayLock.readLock().tryLock(LOCK_TIMEOUT, LOCK_TIME_UNIT)) {
+                    return runwayMap.values().stream()
+                            .flatMap(runway -> runway.getDepartureHistory().stream()
+                                    .filter(flight -> flight.getAirline().equals(airline))
+                                    .map(flight -> new DepartureData(flight.getFlightsBeforeDeparture(),
+                                            runway.getName(),
+                                            flight.getId(),
+                                            flight.getDestinationAirportId(),
+                                            flight.getAirline(),
+                                            flight.getDepartedOn())))
+                            .sorted(Comparator.comparing(DepartureData::getDepartedOn))
+                            .collect(Collectors.toList());
+                }
+            }
+            throw new IllegalStateException("Exceeded lock retries");
+        } finally {
+            runwayLock.readLock().unlock();
+        }
     }
 }

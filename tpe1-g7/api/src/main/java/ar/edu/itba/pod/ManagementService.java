@@ -10,15 +10,15 @@ import java.rmi.RemoteException;
 
 public interface ManagementService extends Remote {
 
-    void addRunway(final String name, final RunwayCategory category) throws RemoteException, RunwayAlreadyExistsException;
+    void addRunway(final String name, final RunwayCategory category) throws RemoteException, RunwayAlreadyExistsException, InterruptedException;
 
-    boolean isRunwayOpen(final String runwayName) throws RemoteException, NoSuchRunwayException;
+    boolean isRunwayOpen(final String runwayName) throws RemoteException, NoSuchRunwayException, InterruptedException;
 
-    void openRunway(final String runwayName) throws RemoteException, NoSuchRunwayException, IllegalStateException;
+    void openRunway(final String runwayName) throws RemoteException, NoSuchRunwayException, IllegalStateException, InterruptedException;
 
-    void closeRunway(final String runwayName) throws RemoteException, NoSuchRunwayException, IllegalStateException;
+    void closeRunway(final String runwayName) throws RemoteException, NoSuchRunwayException, IllegalStateException, InterruptedException;
 
-    void issueDeparture() throws RemoteException;
+    void issueDeparture() throws RemoteException, InterruptedException;
 
-    ReassignmentLog rearrangeDepartures() throws RemoteException;
+    ReassignmentLog rearrangeDepartures() throws RemoteException, InterruptedException;
 }
