@@ -38,6 +38,9 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     static final private TimeUnit LOCK_TIME_UNIT = TimeUnit.SECONDS;
     static final private int LOCK_RETRIES = 6;
 
+    static final private String ERROR_EXCEDEED_LOCK_RETRIES = "Exceeded lock retries";
+    static final private String ERROR_THREAD_INTERRUPTED = "Thread interrupted";
+
     public Servant() {
         runwayMap = new HashMap<>();
         callbackHandlers = new HashMap<>();
@@ -47,7 +50,8 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     }
 
     @Override
-    public void addRunway(final String name, final RunwayCategory category) throws RemoteException, RunwayAlreadyExistsException {
+    public void addRunway(final String name, final RunwayCategory category)
+            throws RemoteException, RunwayAlreadyExistsException {
 //        final Callable<Void> callable = () -> {
 //            if (runwayMap.containsKey(name))
 //                throw new RunwayAlreadyExistsException();
@@ -64,15 +68,14 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                     return;
                 }
             }
-            throw new IllegalStateException("Exceeded lock retries");
+            throw new ServerError(ERROR_EXCEDEED_LOCK_RETRIES, new Error(new IllegalMonitorStateException()));
         } catch (InterruptedException e) {
-            throw new ServerError("Server", new Error("Thread interrupted"));
+            throw new ServerError(ERROR_THREAD_INTERRUPTED, new Error(e));
         } finally {
             runwayLock.writeLock().unlock();
         }
     }
 
-    // TODO: AGREGAR ILLEGALSTATEEXCEPTION AL SIGNATURE
     @Override
     public boolean isRunwayOpen(final String runwayName) throws RemoteException, NoSuchRunwayException {
         try {
@@ -81,9 +84,9 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                     return Optional.ofNullable(runwayMap.get(runwayName)).map(Runway::isOpen).orElseThrow(NoSuchRunwayException::new);
                 }
             }
-            throw new IllegalStateException("Exceeded lock retries");
+            throw new ServerError(ERROR_EXCEDEED_LOCK_RETRIES, new Error(new IllegalMonitorStateException()));
         } catch (InterruptedException e) {
-            throw new ServerError("Server", new Error("Thread interrupted"));
+            throw new ServerError(ERROR_THREAD_INTERRUPTED, new Error(e));
         } finally {
             runwayLock.readLock().unlock();
         }
@@ -96,8 +99,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
 //                    return callable.call();
 //                }
 //            }
-//            // TODO: customizar mensaje
-//            throw new IllegalStateException("Exceeded lock retries");
+//            throw new ServerError(ERROR_EXCEDEED_LOCK_RETRIES, new Error(new IllegalMonitorStateException()));
 //        } finally {
 //            lock.unlock();
 //        }
@@ -115,9 +117,9 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                     return;
                 }
             }
-            throw new IllegalStateException("Exceeded lock retries");
+            throw new ServerError(ERROR_EXCEDEED_LOCK_RETRIES, new Error(new IllegalMonitorStateException()));
         } catch (InterruptedException e) {
-            throw new ServerError("Server", new Error("Thread interrupted"));
+            throw new ServerError(ERROR_THREAD_INTERRUPTED, new Error(e));
         } finally {
             runwayLock.writeLock().unlock();
         }
@@ -135,9 +137,9 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                     return;
                 }
             }
-            throw new IllegalStateException("Exceeded lock retries");
+            throw new ServerError(ERROR_EXCEDEED_LOCK_RETRIES, new Error(new IllegalMonitorStateException()));
         } catch (InterruptedException e) {
-            throw new ServerError("Server", new Error("Thread interrupted"));
+            throw new ServerError(ERROR_THREAD_INTERRUPTED, new Error(e));
         } finally {
             runwayLock.writeLock().unlock();
         }
@@ -162,17 +164,18 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
 
                                         Optional.ofNullable(callbackHandlers.get(departureFlight.getId()))
                                                 .ifPresent(handlers -> {
-                                                    handlers
-                                                            .forEach(handler -> executor.submit(() -> {
-                                                                try {
-                                                                    handler
-                                                                            .onDeparture(departureFlight.getId(), departureFlight.getDestinationAirportId(), runwayName);
-                                                                } catch (RemoteException e) {
-                                                                    // TODO: Manejar excepcion bien
-                                                                    e.printStackTrace();
-                                                                }
-                                                            }));
-                                                    // TODO: Unexport desde el cliente
+                                                    handlers.forEach(handler -> executor.submit(() ->
+                                                    {
+                                                        try {
+                                                            handler.onDeparture(
+                                                                    departureFlight.getId(),
+                                                                    departureFlight.getDestinationAirportId(),
+                                                                    runwayName);
+                                                        } catch (RemoteException e) {
+                                                            // TODO: Manejar excepcion bien
+                                                            e.printStackTrace();
+                                                        }
+                                                    }));
                                                     callbackHandlers.remove(departureFlight.getId());
                                                 });
 
@@ -184,8 +187,11 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                                                 .ifPresent(handlers -> handlers
                                                         .forEach(handler -> executor.submit(() -> {
                                                             try {
-                                                                handler.onQueuePositionUpdate(flight.getId(), flight.getDestinationAirportId(),
-                                                                        runwayName, runway.getFlightsAhead(flight.getId()));
+                                                                handler.onQueuePositionUpdate(
+                                                                        flight.getId(),
+                                                                        flight.getDestinationAirportId(),
+                                                                        runwayName,
+                                                                        runway.getFlightsAhead(flight.getId()));
                                                             } catch (RemoteException e) {
                                                                 // TODO: Manejar excepcion bien
                                                                 e.printStackTrace();
@@ -196,8 +202,8 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                                 }
                             }
                             if (j == LOCK_RETRIES)
-                                throw new IllegalStateException("Exceeded lock retries");
-                        } catch (InterruptedException e) {
+                                throw new ServerError(ERROR_EXCEDEED_LOCK_RETRIES, new Error(new IllegalMonitorStateException()));
+                        } catch (InterruptedException | ServerError e) {
                             // throw new ServerError("Server", new Error("Thread interrupted"));
                             e.printStackTrace();
                         } finally {
@@ -207,9 +213,9 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                     return;
                 }
             }
-            throw new IllegalStateException("Exceeded lock retries");
+            throw new ServerError(ERROR_EXCEDEED_LOCK_RETRIES, new Error(new IllegalMonitorStateException()));
         } catch (InterruptedException e) {
-            throw new ServerError("Server", new Error("Thread interrupted"));
+            throw new ServerError(ERROR_THREAD_INTERRUPTED, new Error(e));
         } finally {
             runwayLock.writeLock().unlock();
         }
@@ -232,9 +238,9 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                 }
             }
             if (i == LOCK_RETRIES)
-                throw new IllegalStateException("Exceeded lock retries");
+                throw new ServerError(ERROR_EXCEDEED_LOCK_RETRIES, new Error(new IllegalMonitorStateException()));
         } catch (InterruptedException e) {
-            throw new ServerError("Server", new Error("Thread interrupted"));
+            throw new ServerError(ERROR_THREAD_INTERRUPTED, new Error(e));
         } finally {
             runwayLock.writeLock().unlock();
         }
@@ -248,6 +254,14 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
             } catch (RemoteException e) {
                 e.printStackTrace(); //TODO ????? LO HACE OCTA
             } catch (NoSuchRunwayException e) {
+                callbackHandlers.get(flight.getId()).forEach((handler) -> {
+                    try {
+                        handler.endProcess();
+                    } catch (RemoteException remoteExceptionHandler) {
+                        remoteExceptionHandler.printStackTrace(); //TODO ????? LO HACE OCTA
+                    }
+                });
+                callbackHandlers.remove(flight.getId());
                 log.addToFailed(flight.getId());
             }
         });
@@ -273,9 +287,9 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                 }
             }
             if (i == LOCK_RETRIES)
-                throw new IllegalStateException("Exceeded lock retries");
+                throw new ServerError(ERROR_EXCEDEED_LOCK_RETRIES, new Error(new IllegalMonitorStateException()));
         } catch (InterruptedException e) {
-            throw new ServerError("Server", new Error("Thread interrupted"));
+            throw new ServerError(ERROR_THREAD_INTERRUPTED, new Error(e));
         } finally {
             runwayLock.readLock().unlock();
         }
@@ -290,9 +304,9 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                 }
             }
             if (i == LOCK_RETRIES)
-                throw new IllegalStateException("Exceeded lock retries");
+                throw new ServerError(ERROR_EXCEDEED_LOCK_RETRIES, new Error(new IllegalMonitorStateException()));
         } catch (InterruptedException e) {
-            throw new ServerError("Server", new Error("Thread interrupted"));
+            throw new ServerError(ERROR_THREAD_INTERRUPTED, new Error(e));
         } finally {
             handlersLock.writeLock().unlock();
         }
@@ -321,9 +335,9 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                 }
             }
             if (i == LOCK_RETRIES)
-                throw new IllegalStateException("Exceeded lock retries");
+                throw new ServerError(ERROR_EXCEDEED_LOCK_RETRIES, new Error(new IllegalMonitorStateException()));
         } catch (InterruptedException e) {
-            throw new ServerError("Server", new Error("Thread interrupted"));
+            throw new ServerError(ERROR_THREAD_INTERRUPTED, new Error(e));
         } finally {
             runwayLock.writeLock().unlock();
         }
@@ -348,14 +362,12 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                 }
             }
             if (i == LOCK_RETRIES)
-                throw new IllegalStateException("Exceeded lock retries");
+                throw new ServerError(ERROR_EXCEDEED_LOCK_RETRIES, new Error(new IllegalMonitorStateException()));
         } catch (InterruptedException e) {
-            throw new ServerError("Server", new Error("Thread interrupted"));
+            throw new ServerError(ERROR_THREAD_INTERRUPTED, new Error(e));
         } finally {
             handlersLock.readLock().unlock();
         }
-
-
     }
 
     @Override
@@ -376,9 +388,9 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                             .collect(Collectors.toList());
                 }
             }
-            throw new IllegalStateException("Exceeded lock retries");
+            throw new ServerError(ERROR_EXCEDEED_LOCK_RETRIES, new Error(new IllegalMonitorStateException()));
         } catch (InterruptedException e) {
-            throw new ServerError("Server", new Error("Thread interrupted"));
+            throw new ServerError(ERROR_THREAD_INTERRUPTED, new Error(e));
         } finally {
             runwayLock.readLock().unlock();
         }
@@ -403,9 +415,9 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                             .collect(Collectors.toList());
                 }
             }
-            throw new IllegalStateException("Exceeded lock retries");
+            throw new ServerError(ERROR_EXCEDEED_LOCK_RETRIES, new Error(new IllegalMonitorStateException()));
         } catch (InterruptedException e) {
-            throw new ServerError("Server", new Error("Thread interrupted"));
+            throw new ServerError(ERROR_THREAD_INTERRUPTED, new Error(e));
         } finally {
             runwayLock.readLock().unlock();
         }
@@ -430,9 +442,9 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                             .collect(Collectors.toList());
                 }
             }
-            throw new IllegalStateException("Exceeded lock retries");
+            throw new ServerError(ERROR_EXCEDEED_LOCK_RETRIES, new Error(new IllegalMonitorStateException()));
         } catch (InterruptedException e) {
-            throw new ServerError("Server", new Error("Thread interrupted"));
+            throw new ServerError(ERROR_THREAD_INTERRUPTED, new Error(e));
         } finally {
             runwayLock.readLock().unlock();
         }
