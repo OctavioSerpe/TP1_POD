@@ -11,12 +11,16 @@ import ar.edu.itba.pod.server.models.Flight;
 import ar.edu.itba.pod.server.models.Runway;
 
 import java.rmi.RemoteException;
+import java.rmi.ServerError;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
@@ -43,7 +47,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     }
 
     @Override
-    public void addRunway(final String name, final RunwayCategory category) throws RemoteException, RunwayAlreadyExistsException, InterruptedException {
+    public void addRunway(final String name, final RunwayCategory category) throws RemoteException, RunwayAlreadyExistsException {
 //        final Callable<Void> callable = () -> {
 //            if (runwayMap.containsKey(name))
 //                throw new RunwayAlreadyExistsException();
@@ -61,13 +65,16 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                 }
             }
             throw new IllegalStateException("Exceeded lock retries");
+        } catch (InterruptedException e) {
+            throw new ServerError("Server", new Error("Thread interrupted"));
         } finally {
             runwayLock.writeLock().unlock();
         }
     }
 
+    // TODO: AGREGAR ILLEGALSTATEEXCEPTION AL SIGNATURE
     @Override
-    public boolean isRunwayOpen(final String runwayName) throws RemoteException, NoSuchRunwayException, InterruptedException {
+    public boolean isRunwayOpen(final String runwayName) throws RemoteException, NoSuchRunwayException {
         try {
             for (int i = 0; i < LOCK_RETRIES; ++i) {
                 if (runwayLock.readLock().tryLock(LOCK_TIMEOUT, LOCK_TIME_UNIT)) {
@@ -75,6 +82,8 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                 }
             }
             throw new IllegalStateException("Exceeded lock retries");
+        } catch (InterruptedException e) {
+            throw new ServerError("Server", new Error("Thread interrupted"));
         } finally {
             runwayLock.readLock().unlock();
         }
@@ -95,7 +104,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
 //    }
 
     @Override
-    public void openRunway(final String runwayName) throws RemoteException, NoSuchRunwayException, IllegalStateException, InterruptedException {
+    public void openRunway(final String runwayName) throws RemoteException, NoSuchRunwayException, IllegalStateException {
         try {
             for (int i = 0; i < LOCK_RETRIES; ++i) {
                 if (runwayLock.writeLock().tryLock(LOCK_TIMEOUT, LOCK_TIME_UNIT)) {
@@ -107,13 +116,15 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                 }
             }
             throw new IllegalStateException("Exceeded lock retries");
+        } catch (InterruptedException e) {
+            throw new ServerError("Server", new Error("Thread interrupted"));
         } finally {
             runwayLock.writeLock().unlock();
         }
     }
 
     @Override
-    public void closeRunway(final String runwayName) throws RemoteException, NoSuchRunwayException, IllegalStateException, InterruptedException {
+    public void closeRunway(final String runwayName) throws RemoteException, NoSuchRunwayException, IllegalStateException {
         try {
             for (int i = 0; i < LOCK_RETRIES; ++i) {
                 if (runwayLock.writeLock().tryLock(LOCK_TIMEOUT, LOCK_TIME_UNIT)) {
@@ -125,13 +136,15 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                 }
             }
             throw new IllegalStateException("Exceeded lock retries");
+        } catch (InterruptedException e) {
+            throw new ServerError("Server", new Error("Thread interrupted"));
         } finally {
             runwayLock.writeLock().unlock();
         }
     }
 
     @Override
-    public void issueDeparture() throws RemoteException, InterruptedException {
+    public void issueDeparture() throws RemoteException {
         try {
             for (int i = 0; i < LOCK_RETRIES; ++i) {
                 if (runwayLock.writeLock().tryLock(LOCK_TIMEOUT, LOCK_TIME_UNIT)) {
@@ -179,19 +192,24 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                                                             }
                                                         })));
                                     });
+                                    break;
                                 }
                             }
                             if (j == LOCK_RETRIES)
                                 throw new IllegalStateException("Exceeded lock retries");
                         } catch (InterruptedException e) {
+                            // throw new ServerError("Server", new Error("Thread interrupted"));
                             e.printStackTrace();
                         } finally {
                             handlersLock.writeLock().unlock();
                         }
                     });
+                    return;
                 }
             }
             throw new IllegalStateException("Exceeded lock retries");
+        } catch (InterruptedException e) {
+            throw new ServerError("Server", new Error("Thread interrupted"));
         } finally {
             runwayLock.writeLock().unlock();
         }
@@ -199,7 +217,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     }
 
     @Override
-    public ReassignmentLog rearrangeDepartures() throws RemoteException, InterruptedException {
+    public ReassignmentLog rearrangeDepartures() throws RemoteException {
         List<Flight> flights = new ArrayList<>();
 
         try {
@@ -210,10 +228,13 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                         flights.addAll(new ArrayList<>(runway.getDepartureQueue()));
                         runway.getDepartureQueue().clear();
                     });
+                    break;
                 }
             }
             if (i == LOCK_RETRIES)
                 throw new IllegalStateException("Exceeded lock retries");
+        } catch (InterruptedException e) {
+            throw new ServerError("Server", new Error("Thread interrupted"));
         } finally {
             runwayLock.writeLock().unlock();
         }
@@ -228,8 +249,6 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                 e.printStackTrace(); //TODO ????? LO HACE OCTA
             } catch (NoSuchRunwayException e) {
                 log.addToFailed(flight.getId());
-            } catch (InterruptedException e) {
-
             }
         });
         return log;
@@ -237,7 +256,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
 
     @Override
     public void subscribe(final String flightId, final String airlineName, final FlightTrackingCallbackHandler handler)
-            throws RemoteException, NoSuchFlightException, InterruptedException {
+            throws RemoteException, NoSuchFlightException {
         try {
             int i;
             for (i = 0; i < LOCK_RETRIES; ++i) {
@@ -250,10 +269,13 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                             .filter(f -> f.getId().equals(flightId) && f.getAirline().equals(airlineName))
                             .findFirst()
                             .orElseThrow(NoSuchFlightException::new);
+                    break;
                 }
             }
             if (i == LOCK_RETRIES)
                 throw new IllegalStateException("Exceeded lock retries");
+        } catch (InterruptedException e) {
+            throw new ServerError("Server", new Error("Thread interrupted"));
         } finally {
             runwayLock.readLock().unlock();
         }
@@ -264,10 +286,13 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                 if (handlersLock.writeLock().tryLock(LOCK_TIMEOUT, LOCK_TIME_UNIT)) {
                     List<FlightTrackingCallbackHandler> handlers = callbackHandlers.computeIfAbsent(flightId, k -> new LinkedList<>());
                     handlers.add(handler);
+                    return;
                 }
             }
             if (i == LOCK_RETRIES)
                 throw new IllegalStateException("Exceeded lock retries");
+        } catch (InterruptedException e) {
+            throw new ServerError("Server", new Error("Thread interrupted"));
         } finally {
             handlersLock.writeLock().unlock();
         }
@@ -275,12 +300,12 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
 
     @Override
     public void requestRunway(final String flightId, final String destinationAirportId, final String airlineName,
-                              final RunwayCategory minimumCategory) throws RemoteException, NoSuchRunwayException, InterruptedException {
+                              final RunwayCategory minimumCategory) throws RemoteException, NoSuchRunwayException {
         requestRunway(new Flight(flightId, destinationAirportId, airlineName, minimumCategory));
     }
 
     private void requestRunway(final Flight flight)
-            throws RemoteException, NoSuchRunwayException, InterruptedException {
+            throws RemoteException, NoSuchRunwayException {
 
         Optional<Runway> maybeRunway = Optional.empty();
         try {
@@ -292,10 +317,13 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                             .min(Comparator.comparing(Runway::getDepartureQueueSize).thenComparing(Runway::getCategory)
                                     .thenComparing(Runway::getName));
                     maybeRunway.orElseThrow(NoSuchRunwayException::new).addToQueue(flight);
+                    break;
                 }
             }
             if (i == LOCK_RETRIES)
                 throw new IllegalStateException("Exceeded lock retries");
+        } catch (InterruptedException e) {
+            throw new ServerError("Server", new Error("Thread interrupted"));
         } finally {
             runwayLock.writeLock().unlock();
         }
@@ -316,10 +344,13 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                                             e.printStackTrace();
                                         }
                                     })));
+                    return;
                 }
             }
             if (i == LOCK_RETRIES)
                 throw new IllegalStateException("Exceeded lock retries");
+        } catch (InterruptedException e) {
+            throw new ServerError("Server", new Error("Thread interrupted"));
         } finally {
             handlersLock.readLock().unlock();
         }
@@ -328,7 +359,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     }
 
     @Override
-    public List<DepartureData> getAllDepartures() throws RemoteException, InterruptedException {
+    public List<DepartureData> getAllDepartures() throws RemoteException {
         try {
             int i;
             for (i = 0; i < LOCK_RETRIES; ++i) {
@@ -346,13 +377,15 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                 }
             }
             throw new IllegalStateException("Exceeded lock retries");
+        } catch (InterruptedException e) {
+            throw new ServerError("Server", new Error("Thread interrupted"));
         } finally {
             runwayLock.readLock().unlock();
         }
     }
 
     @Override
-    public List<DepartureData> getRunwayDepartures(final String runwayName) throws RemoteException, NoSuchRunwayException, InterruptedException {
+    public List<DepartureData> getRunwayDepartures(final String runwayName) throws RemoteException, NoSuchRunwayException {
         try {
             int i;
             for (i = 0; i < LOCK_RETRIES; ++i) {
@@ -371,13 +404,15 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                 }
             }
             throw new IllegalStateException("Exceeded lock retries");
+        } catch (InterruptedException e) {
+            throw new ServerError("Server", new Error("Thread interrupted"));
         } finally {
             runwayLock.readLock().unlock();
         }
     }
 
     @Override
-    public List<DepartureData> getAirlineDepartures(final String airline) throws RemoteException, InterruptedException {
+    public List<DepartureData> getAirlineDepartures(final String airline) throws RemoteException {
         try {
             int i;
             for (i = 0; i < LOCK_RETRIES; ++i) {
@@ -396,6 +431,8 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                 }
             }
             throw new IllegalStateException("Exceeded lock retries");
+        } catch (InterruptedException e) {
+            throw new ServerError("Server", new Error("Thread interrupted"));
         } finally {
             runwayLock.readLock().unlock();
         }

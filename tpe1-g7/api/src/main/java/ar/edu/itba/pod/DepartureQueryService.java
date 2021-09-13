@@ -9,9 +9,9 @@ import java.util.List;
 
 public interface DepartureQueryService extends Remote {
 
-    List<DepartureData> getAllDepartures() throws RemoteException, InterruptedException;
+    List<DepartureData> getAllDepartures() throws RemoteException;
 
-    List<DepartureData> getRunwayDepartures(final String runwayName) throws RemoteException, NoSuchRunwayException, InterruptedException;
+    List<DepartureData> getRunwayDepartures(final String runwayName) throws RemoteException, NoSuchRunwayException;
 
-    List<DepartureData> getAirlineDepartures(final String airline) throws RemoteException, InterruptedException;
+    List<DepartureData> getAirlineDepartures(final String airline) throws RemoteException;
 }

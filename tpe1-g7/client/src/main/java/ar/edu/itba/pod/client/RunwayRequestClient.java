@@ -18,7 +18,7 @@ import java.util.List;
 import static ar.edu.itba.pod.client.utils.RunwayCategoryUtils.getRunwayCategory;
 
 public class RunwayRequestClient {
-    private static final Logger logger = LoggerFactory.getLogger(Client.class);
+    private static final Logger logger = LoggerFactory.getLogger(RunwayRequestClient.class);
 
     public static void main(String[] args) throws MalformedURLException, NotBoundException, RemoteException {
         String serverAddress = System.getProperty("serverAddress");

@@ -30,6 +30,20 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <!-- BEGIN: TEST -->
+      <dependency>
+        <groupId>junit</groupId>
+        <artifactId>junit</artifactId>
+        <version>4.13.2</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.mockito</groupId>
+        <artifactId>mockito-all</artifactId>
+        <version>1.8.5</version>
+        <scope>test</scope>
+      </dependency>
+      <!-- END: TEST -->
     </dependencies>
   </dependencyManagement>
   <dependencies>
@@ -50,20 +64,6 @@
       <version>${slf4j.version}</version>
       <scope>runtime</scope>
     </dependency>
-    <!-- BEGIN: TEST -->
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.10</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.mockito</groupId>
-      <artifactId>mockito-all</artifactId>
-      <version>1.8.5</version>
-      <scope>test</scope>
-    </dependency>
-    <!-- END: TEST -->
   </dependencies>
   <build>
     <pluginManagement>

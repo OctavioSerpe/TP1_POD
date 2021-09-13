@@ -13,7 +13,7 @@ import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 
 public class FlightTrackingClient {
-    private static final Logger logger = LoggerFactory.getLogger(Client.class);
+    private static final Logger logger = LoggerFactory.getLogger(FlightTrackingClient.class);
 
     public static void main(String[] args) throws MalformedURLException, NotBoundException, RemoteException {
         String serverAddress = System.getProperty("serverAddress");

@@ -18,7 +18,7 @@ import java.rmi.RemoteException;
 import java.util.List;
 
 public class DepartureQueryClient {
-    private static final Logger logger = LoggerFactory.getLogger(Client.class);
+    private static final Logger logger = LoggerFactory.getLogger(DepartureQueryClient.class);
 
     public static void main(String[] args) throws MalformedURLException, NotBoundException, RemoteException {
         String serverAddress = System.getProperty("serverAddress");
