@@ -38,12 +38,12 @@ public class ServantTest {
     static final private int TOTAL_FLIGHTS = 2000;
     static final private int TOTAL_OPENED_RUNWAYS = 2000;
     static final private int TOTAL_RUNWAYS = 4;
-    static final private Supplier<ExecutorService> supplyThreadPool = () -> Executors.newFixedThreadPool(N_THREADS);
+    static final private Supplier<ExecutorService> executorServiceSupplier = () -> Executors.newFixedThreadPool(N_THREADS);
 
     @Before
     public void init() {
         servant = new Servant();
-        executorService = supplyThreadPool.get();
+        executorService = executorServiceSupplier.get();
     }
 
     @Test
@@ -72,7 +72,7 @@ public class ServantTest {
         });
 
         futures.clear();
-        ExecutorService auxExecutor = supplyThreadPool.get();
+        ExecutorService auxExecutor = executorServiceSupplier.get();
         futures.addAll(auxExecutor.invokeAll(callables));
         for (Future<Object> future : futures) {
             future.get(TIMEOUT, TIME_UNIT);
@@ -160,7 +160,7 @@ public class ServantTest {
         executorService.shutdown();
         executorService.awaitTermination(AWAIT_TERMINATION_TIMEOUT, TIME_UNIT);
 
-        ExecutorService auxExecutor = supplyThreadPool.get();
+        ExecutorService auxExecutor = executorServiceSupplier.get();
         callables.clear();
         futures.clear();
         IntStream.range(0, TOTAL_TEST_FLIGHTS).forEach(n -> {
@@ -253,7 +253,7 @@ public class ServantTest {
         servant.rearrangeDepartures();
 
 
-        ExecutorService auxExecutor = supplyThreadPool.get();
+        ExecutorService auxExecutor = executorServiceSupplier.get();
         callables.clear();
         IntStream.range(0, TOTAL_TEST_FLIGHTS).forEach(n -> {
             callables.add(() -> {
@@ -319,7 +319,7 @@ public class ServantTest {
             });
         }
 
-        ExecutorService auxExecutor = supplyThreadPool.get();
+        ExecutorService auxExecutor = executorServiceSupplier.get();
         futures.clear();
         futures.addAll(auxExecutor.invokeAll(callables));
         for (Future<Object> future : futures) {
@@ -330,7 +330,7 @@ public class ServantTest {
         auxExecutor.awaitTermination(AWAIT_TERMINATION_TIMEOUT, TIME_UNIT);
 
         callables.clear();
-        
+
         // nuevamente abro las pistas
         for(int i = 0 ; i < TOTAL_RUNWAYS; ++i) {
             final int index = i;
@@ -341,7 +341,7 @@ public class ServantTest {
             });
         }
 
-        auxExecutor = supplyThreadPool.get();
+        auxExecutor = executorServiceSupplier.get();
         futures.clear();
         futures.addAll(auxExecutor.invokeAll(callables));
         for (Future<Object> future : futures) {

@@ -21,11 +21,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class Servant implements ManagementService, DepartureQueryService, FlightTrackingService, RunwayRequestService {
-
-    // TODO: thread-safe
 
     final private Map<String, Runway> runwayMap;
     final private Map<String, List<FlightTrackingCallbackHandler>> callbackHandlers;
@@ -137,6 +136,10 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                                                     departureFlight.getId(),
                                                     departureFlight.getDestinationAirportId(),
                                                     runway.getName());
+
+                                            // TODO: verificar
+                                            // eliminamos el objeto luego del despeje
+                                            handler.endProcess();
                                         } catch (RemoteException e) {
                                             // TODO: Manejar excepcion bien
                                             e.printStackTrace();
@@ -167,7 +170,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                                                 }
                                             })));
                             return null;
-                        }, handlersLock.writeLock());
+                        }, handlersLock.readLock());
                     }
 
                 }
@@ -206,7 +209,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                     });
                     callbackHandlers.remove(flight.getId());
                     return null;
-                }, handlersLock.writeLock());
+                }, handlersLock.readLock());
                 log.addToFailed(flight.getId());
             }
         }
