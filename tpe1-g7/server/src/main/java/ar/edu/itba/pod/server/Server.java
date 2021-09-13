@@ -21,6 +21,7 @@ public class Server {
         registry.rebind("flight_tracking", servant);
         registry.rebind("management", servant);
         registry.rebind("runway_request", servant);
-        logger.info("corriiiii!!!!!!");
+
+        logger.info("tpe1-g7 Server started.");
     }
 }
