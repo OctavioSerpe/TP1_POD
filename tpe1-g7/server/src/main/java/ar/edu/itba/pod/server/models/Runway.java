@@ -55,6 +55,18 @@ public class Runway {
         departureQueue.add(flight);
     }
 
+    public Flight pollFromQueue() {
+        return departureQueue.poll();
+    }
+
+    public boolean isQueueEmpty() {
+        return departureQueue.isEmpty();
+    }
+
+    public void clearQueue() {
+        departureQueue.clear();
+    }
+
     public long getFlightsAhead(final String flightId) throws NoSuchFlightException {
         long flightsAhead = 0;
         boolean foundFlight = false;

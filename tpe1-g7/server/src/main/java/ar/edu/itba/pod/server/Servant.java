@@ -93,7 +93,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
 
     @Override
     public void openRunway(final String runwayName)
-            throws RemoteException, NoSuchRunwayException, IllegalStateException {
+            throws RemoteException, NoSuchRunwayException {
         if (runwayName == null)
             throw new IllegalArgumentException("Runway name MUST NOT be null");
 
@@ -112,7 +112,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
 
     @Override
     public void closeRunway(final String runwayName)
-            throws RemoteException, NoSuchRunwayException, IllegalStateException {
+            throws RemoteException, NoSuchRunwayException {
         if (runwayName == null)
             throw new IllegalArgumentException("Runway name MUST NOT be null");
 
@@ -133,8 +133,8 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     public void issueDeparture() throws RemoteException {
         tryLockWithTimeout(() -> {
             for (Runway runway : runwayMap.values()) {
-                if (runway.isOpen() && !runway.getDepartureQueue().isEmpty()) {
-                    Flight departureFlight = runway.getDepartureQueue().poll();
+                if (runway.isOpen() && !runway.isQueueEmpty()) {
+                    Flight departureFlight = runway.pollFromQueue();
                     departureFlight.setDepartedOn(LocalDateTime.now());
 
                     tryLockWithTimeout(() -> {
@@ -194,7 +194,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
         tryLockWithTimeout(() -> {
                     runwayMap.values().forEach(runway -> {
                         flights.addAll(new ArrayList<>(runway.getDepartureQueue()));
-                        runway.getDepartureQueue().clear();
+                        runway.clearQueue();
                     });
                     return null;
                 }, runwayLock.writeLock()

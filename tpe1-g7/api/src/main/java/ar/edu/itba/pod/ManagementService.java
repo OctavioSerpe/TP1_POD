@@ -14,9 +14,9 @@ public interface ManagementService extends Remote {
 
     boolean isRunwayOpen(final String runwayName) throws RemoteException, NoSuchRunwayException;
 
-    void openRunway(final String runwayName) throws RemoteException, NoSuchRunwayException, IllegalStateException;
+    void openRunway(final String runwayName) throws RemoteException, NoSuchRunwayException;
 
-    void closeRunway(final String runwayName) throws RemoteException, NoSuchRunwayException, IllegalStateException;
+    void closeRunway(final String runwayName) throws RemoteException, NoSuchRunwayException;
 
     void issueDeparture() throws RemoteException;
 
