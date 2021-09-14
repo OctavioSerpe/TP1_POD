@@ -1,15 +1,9 @@
 package ar.edu.itba.pod.server.models;
 
-import ar.edu.itba.pod.FlightTrackingCallbackHandler;
 import ar.edu.itba.pod.models.RunwayCategory;
 
-import java.rmi.RemoteException;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.Callable;
 
 public class Flight {
 

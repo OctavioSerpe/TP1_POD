@@ -28,7 +28,7 @@ public class ServantTest {
 
     static private Servant servant;
     static private ExecutorService executorService;
-    static final private int N_THREADS = 8;
+    static final private int N_THREADS = 40;
     static private List<String> runwayNames = Arrays.asList("MANAGEMENT RUNWAY", "QUERY RUNWAY", "TRACKING RUNWAY", "DEPARTURE RUNWAY",
             "ALU RUNWAY", "LINUX RUNWAY");
     static private List<String> airlinesNames = Arrays.asList("MANAGEMENT AIRLINE", "QUERY AIRLINE", "TRACKING AIRLINE", "DEPARTURE AIRLINE");
