@@ -64,6 +64,9 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     @Override
     public void addRunway(final String name, final RunwayCategory category)
             throws RemoteException, RunwayAlreadyExistsException {
+        if (name == null || category == null)
+            throw new IllegalArgumentException("Runway name and Runway category MUST NOT be null");
+
         tryLockWithTimeout(
                 () -> {
                     if (runwayMap.containsKey(name))
@@ -78,6 +81,9 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     @Override
     public boolean isRunwayOpen(final String runwayName)
             throws RemoteException, NoSuchRunwayException {
+        if (runwayName == null)
+            throw new IllegalArgumentException("Runway name MUST NOT be null");
+
         return tryLockWithTimeout(
                 () -> Optional.ofNullable(runwayMap.get(runwayName))
                         .map(Runway::isOpen).orElseThrow(NoSuchRunwayException::new),
@@ -88,6 +94,9 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     @Override
     public void openRunway(final String runwayName)
             throws RemoteException, NoSuchRunwayException, IllegalStateException {
+        if (runwayName == null)
+            throw new IllegalArgumentException("Runway name MUST NOT be null");
+
         tryLockWithTimeout(
                 () -> {
                     final Runway runway = Optional.ofNullable(runwayMap.get(runwayName))
@@ -104,6 +113,9 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     @Override
     public void closeRunway(final String runwayName)
             throws RemoteException, NoSuchRunwayException, IllegalStateException {
+        if (runwayName == null)
+            throw new IllegalArgumentException("Runway name MUST NOT be null");
+
         tryLockWithTimeout(
                 () -> {
                     final Runway runway = Optional.ofNullable(runwayMap.get(runwayName))
@@ -216,6 +228,10 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     public void subscribe(final String flightId, final String airlineName, final FlightTrackingCallbackHandler handler)
             throws RemoteException, NoSuchFlightException {
 
+        if (flightId == null || airlineName == null || handler == null)
+            throw new IllegalArgumentException("Runway name, airline name and handler MUST NOT be null");
+
+
         // First, we check the flight addressed exists
         tryLockWithTimeout(() -> {
             // TODO: Excepcion distinta para cuando no matchea la aerolinea ?
@@ -238,6 +254,9 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     @Override
     public void requestRunway(final String flightId, final String destinationAirportId, final String airlineName,
                               final RunwayCategory minimumCategory) throws RemoteException, NoSuchRunwayException {
+        if (flightId == null || destinationAirportId == null || airlineName == null | minimumCategory == null)
+            throw new IllegalArgumentException("flight ID, destination airport ID, airline name and minimum runway category MUST NOT be null");
+
         requestRunway(new Flight(flightId, destinationAirportId, airlineName, minimumCategory));
     }
 
@@ -285,6 +304,8 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
 
     @Override
     public List<DepartureData> getRunwayDepartures(final String runwayName) throws RemoteException, NoSuchRunwayException {
+        if (runwayName == null)
+            throw new IllegalArgumentException("Runway name MUST NOT be null");
 
         return tryLockWithTimeout(() -> Optional.ofNullable(runwayMap.get(runwayName)).orElseThrow(NoSuchRunwayException::new)
                         .getDepartureHistory().stream()
@@ -301,6 +322,8 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
 
     @Override
     public List<DepartureData> getAirlineDepartures(final String airline) throws RemoteException {
+        if (airline == null)
+            throw new IllegalArgumentException("Airline MUST NOT be null");
 
         return tryLockWithTimeout(() -> runwayMap.values().stream()
                         .flatMap(runway -> runway.getDepartureHistory().stream()
