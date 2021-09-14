@@ -2,6 +2,7 @@ package ar.edu.itba.pod;
 
 import ar.edu.itba.pod.exceptions.NoSuchRunwayException;
 import ar.edu.itba.pod.exceptions.RunwayAlreadyExistsException;
+import ar.edu.itba.pod.models.DepartureData;
 import ar.edu.itba.pod.models.RunwayCategory;
 import ar.edu.itba.pod.server.Servant;
 import ar.edu.itba.pod.server.models.Flight;
@@ -14,6 +15,7 @@ import org.junit.function.ThrowingRunnable;
 
 import java.rmi.RemoteException;
 import java.sql.Time;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -51,7 +53,11 @@ public class ServantTest {
     }
 
     @Test
-    public void testFlights() throws InterruptedException, RemoteException, ExecutionException, TimeoutException {
+    public void testFlightsAndDepartureData() throws InterruptedException, RemoteException, ExecutionException, TimeoutException {
+        final LocalDateTime departedOn = LocalDateTime.now();
+        LocalDateTime departedOnCopy = departedOn;
+        int flightsDeparted = 0;
+
         servant.addRunway(RUNWAY_NAME, RunwayCategory.A);
         final List<Callable<Object>> callables = new ArrayList<>();
         IntStream.range(0, TOTAL_FLIGHTS).forEach(n -> {
@@ -84,7 +90,54 @@ public class ServantTest {
         auxExecutor.shutdown();
         auxExecutor.awaitTermination(AWAIT_TERMINATION_TIMEOUT, TIME_UNIT);
 
-        Assert.assertEquals(TOTAL_FLIGHTS, servant.getAllDepartures().size());
+        final List<DepartureData> departureData = servant.getAllDepartures();
+        Assert.assertEquals(TOTAL_FLIGHTS, departureData.size());
+        Assert.assertTrue(departureData.stream().allMatch(f -> f.getAirline().equals(AIRLINE_NAME) &&
+                f.getDestinationAirportId().equals(DESTINATION_AIRPORT_ID) &&
+                f.getRunwayName().equals(RUNWAY_NAME)));
+
+        // comparo tanto la fecha de salida como los vuelos previos, dado que los devuelve ordenados
+        for(DepartureData data : departureData) {
+            Assert.assertTrue(departedOnCopy.isEqual(data.getDepartedOn()) ||
+                    departedOnCopy.isBefore(data.getDepartedOn()));
+            Assert.assertEquals(flightsDeparted++, data.getFlightsBeforeDeparture());
+            departedOnCopy = data.getDepartedOn();
+        }
+
+        departureData.clear();
+
+        departureData.addAll(servant.getAirlineDepartures(AIRLINE_NAME));
+        Assert.assertEquals(TOTAL_FLIGHTS, departureData.size());
+        Assert.assertTrue(departureData.stream().allMatch(f -> f.getAirline().equals(AIRLINE_NAME) &&
+                f.getDestinationAirportId().equals(DESTINATION_AIRPORT_ID) &&
+                f.getRunwayName().equals(RUNWAY_NAME)));
+
+        // reseteo
+        departedOnCopy = departedOn;
+        flightsDeparted = 0;
+        for(DepartureData data : departureData) {
+            Assert.assertTrue(departedOnCopy.isEqual(data.getDepartedOn()) ||
+                    departedOnCopy.isBefore(data.getDepartedOn()));
+            Assert.assertEquals(flightsDeparted++, data.getFlightsBeforeDeparture());
+            departedOnCopy = data.getDepartedOn();
+        }
+
+        departureData.clear();
+
+        departureData.addAll(servant.getRunwayDepartures(RUNWAY_NAME));
+        Assert.assertEquals(TOTAL_FLIGHTS, departureData.size());
+        Assert.assertTrue(departureData.stream().allMatch(f -> f.getAirline().equals(AIRLINE_NAME) &&
+                f.getDestinationAirportId().equals(DESTINATION_AIRPORT_ID) &&
+                f.getRunwayName().equals(RUNWAY_NAME)));
+
+        departedOnCopy = departedOn;
+        flightsDeparted = 0;
+        for(DepartureData data : departureData) {
+            Assert.assertTrue(departedOnCopy.isEqual(data.getDepartedOn()) ||
+                    departedOnCopy.isBefore(data.getDepartedOn()));
+            Assert.assertEquals(flightsDeparted++, data.getFlightsBeforeDeparture());
+            departedOnCopy = data.getDepartedOn();
+        }
     }
 
     @Test(expected = ExecutionException.class)

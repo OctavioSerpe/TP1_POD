@@ -332,7 +332,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                                         runway.getName(),
                                         flight.getId(),
                                         flight.getDestinationAirportId(),
-                                        flight.getAirline(),
+                                        airline,
                                         flight.getDepartedOn())))
                         .sorted(Comparator.comparing(DepartureData::getDepartedOn))
                         .collect(Collectors.toList()),
