@@ -1,5 +1,7 @@
 package ar.edu.itba.pod;
 
+import ar.edu.itba.pod.exceptions.NoSuchRunwayException;
+import ar.edu.itba.pod.exceptions.RunwayAlreadyExistsException;
 import ar.edu.itba.pod.models.RunwayCategory;
 import ar.edu.itba.pod.server.Servant;
 import ar.edu.itba.pod.server.models.Flight;
@@ -8,6 +10,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.junit.function.ThrowingRunnable;
 
 import java.rmi.RemoteException;
 import java.sql.Time;
@@ -35,6 +38,7 @@ public class ServantTest {
     static final private String RUNWAY_NAME = "POD RUNWAY";
     static final private String DESTINATION_AIRPORT_ID = "POD AIRPORT";
     static final private String AIRLINE_NAME = "POD AIRLINE";
+    static final private String FLIGHT_ID = "POD";
     static final private int TOTAL_FLIGHTS = 2000;
     static final private int TOTAL_OPENED_RUNWAYS = 2000;
     static final private int TOTAL_RUNWAYS = 4;
@@ -281,17 +285,19 @@ public class ServantTest {
         }
 
         // chequeo por aerolineas, las cuales son independientes de las pistas
+        // si hay vuelos extra (modulo da > 0 al dividir todos los vuelos entre todas las pistas), tengo que contemplarlos
+        // en el orden (ascendente) que se asignaron a las aerolineas
         for (int i = 0; i < TOTAL_TEST_AIRLINES; ++i, --extraFlights) {
             Assert.assertEquals(flightsPerAirline + (extraFlights > 0 ? 1 : 0), servant.getAirlineDepartures(airlinesNames.get(i)).size());
         }
     }
 
     @Test
-    public void testOpenRunway() throws InterruptedException, ExecutionException, TimeoutException {
+    public void testOpenAndCloseRunways() throws InterruptedException, ExecutionException, TimeoutException {
 
         // agrego pistas, el default es que esten abiertas
         final List<Callable<Object>> callables = new ArrayList<>();
-        for(int i = 0 ; i < TOTAL_RUNWAYS; ++i) {
+        for (int i = 0; i < TOTAL_RUNWAYS; ++i) {
             final int index = i;
             callables.add(() -> {
                 servant.addRunway(runwayNames.get(index), RunwayCategory.A);
@@ -310,7 +316,7 @@ public class ServantTest {
         callables.clear();
 
         // cierro todas las pistas
-        for(int i = 0 ; i < TOTAL_RUNWAYS; ++i) {
+        for (int i = 0; i < TOTAL_RUNWAYS; ++i) {
             final int index = i;
             callables.add(() -> {
                 servant.closeRunway(runwayNames.get(index));
@@ -332,7 +338,7 @@ public class ServantTest {
         callables.clear();
 
         // nuevamente abro las pistas
-        for(int i = 0 ; i < TOTAL_RUNWAYS; ++i) {
+        for (int i = 0; i < TOTAL_RUNWAYS; ++i) {
             final int index = i;
             callables.add(() -> {
                 servant.openRunway(runwayNames.get(index));
@@ -353,4 +359,42 @@ public class ServantTest {
 
     }
 
+    @Test
+    public void testAddRunwayExceptions() throws RemoteException {
+        servant.addRunway(RUNWAY_NAME, RunwayCategory.A);
+        Assert.assertThrows(RunwayAlreadyExistsException.class, () -> servant.addRunway(RUNWAY_NAME, RunwayCategory.B));
+    }
+
+    @Test
+    public void testIsRunwayOpenExceptions() {
+        Assert.assertThrows(NoSuchRunwayException.class, () -> servant.isRunwayOpen(RUNWAY_NAME));
+    }
+
+    @Test
+    public void testOpenRunwayExceptions() throws RemoteException {
+        final ThrowingRunnable throwingRunnable = () -> servant.openRunway(RUNWAY_NAME);
+        Assert.assertThrows(NoSuchRunwayException.class, throwingRunnable);
+        servant.addRunway(RUNWAY_NAME, RunwayCategory.A);
+        Assert.assertThrows(IllegalStateException.class, throwingRunnable);
+    }
+
+    @Test
+    public void testCloseRunwayExceptions() throws RemoteException {
+        final ThrowingRunnable throwingRunnable = () -> servant.closeRunway(RUNWAY_NAME);
+        Assert.assertThrows(NoSuchRunwayException.class, throwingRunnable);
+        servant.addRunway(RUNWAY_NAME, RunwayCategory.A);
+        servant.closeRunway(RUNWAY_NAME);
+        Assert.assertThrows(IllegalStateException.class, throwingRunnable);
+    }
+
+    @Test
+    public void testRequestRunwayExceptions() {
+        Assert.assertThrows(NoSuchRunwayException.class, () ->
+                servant.requestRunway(FLIGHT_ID, DESTINATION_AIRPORT_ID, AIRLINE_NAME, RunwayCategory.A));
+    }
+
+    @Test
+    public void testGetRunwayDeparturesExceptions() {
+        Assert.assertThrows(NoSuchRunwayException.class, () -> servant.getRunwayDepartures(RUNWAY_NAME));
+    }
 }

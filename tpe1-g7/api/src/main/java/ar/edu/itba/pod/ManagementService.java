@@ -12,7 +12,7 @@ public interface ManagementService extends Remote {
 
     void addRunway(final String name, final RunwayCategory category) throws RemoteException, RunwayAlreadyExistsException;
 
-    boolean isRunwayOpen(final String runwayName) throws RemoteException, NoSuchRunwayException, IllegalStateException;
+    boolean isRunwayOpen(final String runwayName) throws RemoteException, NoSuchRunwayException;
 
     void openRunway(final String runwayName) throws RemoteException, NoSuchRunwayException, IllegalStateException;
 
