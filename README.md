@@ -1,8 +1,8 @@
 # Trabajo Práctico Especial 1: Despegues
 
-## Programación de Objetos Distribuidos - 2º cuatrimestre 2021
+## 72.42 Programación de Objetos Distribuidos - 2º cuatrimestre 2021
 
----
+### Instituto Tecnológico de Buenos Aires
 
 ## Autores
 
@@ -11,14 +11,10 @@
 - [Arca, Gonzalo](https://github.com/gonzaloarca) - Legajo 60303
 - [Parma, Manuel Félix](https://github.com/manuelfparma) - Legajo 60425
 
----
-
 ## Dependencias
 
 - Java 8 (JDK 8)
 - Maven
-
----
 
 ## Cómo compilar el proyecto
 
@@ -33,8 +29,6 @@ Luego, para descomprimir los `.jar` generados y otorgar permisos de ejecución, 
 ```bash
 $ ./pod-chmod-run.sh
 ```
-
----
 
 ## Cómo ejecutar el proyecto
 
@@ -56,6 +50,79 @@ Luego, para ejecutar el _server_ situarse nuevamente en la carpeta `tpe1-g7/serv
 $ ./run-server.sh
 ```
 
-### 3. Clients
+### 3. Clientes
 
-Finalmente, para ejecutar los _clients_ situarse en la carpeta `tpe1-g7/client/target/tpe1-g7-client-1.0-SNAPSHOT` y ejecutar el comando:
+#### 3.1. Cliente de Administración
+
+Para ejecutar el cliente de administración situarse en la carpeta `tpe1-g7/client/target/tpe1-g7-client-1.0-SNAPSHOT` y ejecutar el comando:
+
+```bash
+$ ./run-management.sh -DserverAddress=xx.xx.xx.xx:yyyy -Daction=actionName [ -Drunway=runwayName | -Dcategory=minCategory ]
+```
+
+donde
+
+- `xx.xx.xx.xx:yyyy` es la dirección IP y el puerto donde está publicado el servicio de
+  administración de los despegues.
+- `actionName` es el nombre de la acción a realizar.
+  - `add`: Agrega una pista de categoría `minCategory` con el nombre `runwayName`.
+    Deberá imprimir en pantalla el estado de la pista luego de agregarla o el error
+    correspondiente.
+  - `open`: Abre la pista `runwayName`. Deberá imprimir en pantalla el estado de la pista
+    luego de invocar a la acción o el error correspondiente.
+  - `close`: Cierra la pista `runwayName`. Deberá imprimir en pantalla el estado de la pista
+    luego de invocar a la acción o el error correspondiente.
+  - `status`: Consulta el estado de la pista `runwayName`. Deberá imprimir en pantalla el
+    estado de la pista al momento de la consulta.
+  - `takeOff`: Emite una orden de despegue en las pistas abiertas. Deberá imprimir en
+    pantalla la finalización de la acción.
+  - `reorder`: Emite una orden de reordenamiento en las pistas. Deberá imprimir en
+    pantalla la cantidad de vuelos que obtuvieron una pista y detallar aquellos que no.
+
+#### 3.2. Cliente de Solicitud de Pista
+
+Para ejecutar el cliente de solicitud de pista situarse en la carpeta `tpe1-g7/client/target/tpe1-g7-client-1.0-SNAPSHOT` y ejecutar el comando:
+
+```bash
+$ ./run-runway.sh -DserverAddress=xx.xx.xx.xx:yyyy -DinPath=fileName
+```
+
+donde
+
+- `xx.xx.xx.xx:yyyy` es la dirección IP y el puerto donde está publicado el servicio de
+  solicitud de pista.
+- `fileName` es el path del archivo de entrada con las solicitudes de pista
+
+#### 3.3. Cliente de Seguimiento de Vuelo
+
+```bash
+$ ./run-airline.sh -DserverAddress=xx.xx.xx.xx:yyyy -Dairline=airlineName
+-DflightCode=flightCode
+```
+
+donde
+
+- `xx.xx.xx.xx:yyyy` es la dirección IP y el puerto donde está publicado el servicio de
+  seguimiento de vuelo.
+- `airlineName`: el nombre de la aerolínea
+- `flightCode`: el código identificador de un vuelo de la aerolínea airlineName que esté
+  esperando despegar.
+
+#### 3.4. Cliente de Consulta
+
+Para ejecutar el cliente de consulta situarse en la carpeta `tpe1-g7/client/target/tpe1-g7-client-1.0-SNAPSHOT` y ejecutar el comando:
+
+```bash
+ ./run-query.sh -DserverAddress=xx.xx.xx.xx:yyyy [ -Dairline=airlineName |
+-Drunway=runwayName ] -DoutPath=fileName
+```
+
+donde
+
+- `xx.xx.xx.xx:yyyy` es la dirección IP y el puerto donde está publicado el servicio de
+  consulta de los despegues.
+- Si no se indica `-Dairline` ni `-Drunway` se resuelve la consulta 1.
+- Si se indica `-Dairline`, `airlineName` es el nombre de la aerolínea elegida para resolver
+  la consulta 2.
+- Si se indica `-Drunway`, `runwayName` es el nombre de la pista elegida para resolver la
+  consulta 3.
