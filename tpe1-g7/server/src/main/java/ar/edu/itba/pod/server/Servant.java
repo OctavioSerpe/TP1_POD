@@ -135,9 +135,6 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                                                     departureFlight.getId(),
                                                     departureFlight.getDestinationAirportId(),
                                                     runway.getName());
-
-                                            // TODO: verificar
-                                            // eliminamos el objeto luego del despeje
                                             handler.endProcess();
                                         } catch (RemoteException e) {
                                             // TODO: Manejar excepcion bien
@@ -208,7 +205,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                     });
                     callbackHandlers.remove(flight.getId());
                     return null;
-                }, handlersLock.readLock());
+                }, handlersLock.writeLock());
                 log.addToFailed(flight.getId());
             }
         }
@@ -218,10 +215,11 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     @Override
     public void subscribe(final String flightId, final String airlineName, final FlightTrackingCallbackHandler handler)
             throws RemoteException, NoSuchFlightException {
+
+        // First, we check the flight addressed exists
         tryLockWithTimeout(() -> {
             // TODO: Excepcion distinta para cuando no matchea la aerolinea ?
             // TODO: Excepcion distinta para cuando el vuelo EXISTE en el history pero no en la queue (no esta esperando a despegar) ?
-            // la idea de esta linea es evaluar si el vuelo existe, y si pertenece a la aerolinea
             runwayMap.values().stream()
                     .flatMap(runway -> runway.getDepartureQueue().stream())
                     .filter(f -> f.getId().equals(flightId) && f.getAirline().equals(airlineName))

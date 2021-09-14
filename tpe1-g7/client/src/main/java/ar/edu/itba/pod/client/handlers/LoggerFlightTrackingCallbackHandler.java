@@ -2,7 +2,6 @@ package ar.edu.itba.pod.client.handlers;
 
 import ar.edu.itba.pod.FlightTrackingCallbackHandler;
 
-import java.rmi.NoSuchObjectException;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 
@@ -23,7 +22,6 @@ public class LoggerFlightTrackingCallbackHandler implements FlightTrackingCallba
     @Override
     public void onDeparture(final String flightId, final String destination, final String runway) throws RemoteException {
         System.out.printf("Flight %s with destiny %s departed on runway %s.\n", flightId, destination, runway);
-        endProcess();
     }
 
     @Override
