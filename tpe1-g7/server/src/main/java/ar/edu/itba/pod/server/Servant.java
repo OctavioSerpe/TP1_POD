@@ -142,16 +142,13 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                                 .ifPresent(handlers -> {
                                     handlers.forEach(handler -> executor.submit(() ->
                                     {
-                                        try {
-                                            handler.onDeparture(
-                                                    departureFlight.getId(),
-                                                    departureFlight.getDestinationAirportId(),
-                                                    runway.getName());
-                                            handler.endProcess();
-                                        } catch (RemoteException e) {
-                                            // TODO: Manejar excepcion bien
-                                            e.printStackTrace();
-                                        }
+                                        // convierto a callable devolviendo null, el resultado no debiera importar
+                                        handler.onDeparture(
+                                                departureFlight.getId(),
+                                                departureFlight.getDestinationAirportId(),
+                                                runway.getName());
+                                        handler.endProcess();
+                                        return null;
                                     }));
                                     callbackHandlers.remove(departureFlight.getId());
                                 });
@@ -166,16 +163,13 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                             Optional.ofNullable(callbackHandlers.get(flight.getId()))
                                     .ifPresent(handlers -> handlers
                                             .forEach(handler -> executor.submit(() -> {
-                                                try {
-                                                    handler.onQueuePositionUpdate(
-                                                            flight.getId(),
-                                                            flight.getDestinationAirportId(),
-                                                            runway.getName(),
-                                                            runway.getFlightsAhead(flight.getId()));
-                                                } catch (RemoteException e) {
-                                                    // TODO: Manejar excepcion bien
-                                                    e.printStackTrace();
-                                                }
+                                                // convierto a callable devolviendo null, el resultado no debiera importar
+                                                handler.onQueuePositionUpdate(
+                                                        flight.getId(),
+                                                        flight.getDestinationAirportId(),
+                                                        runway.getName(),
+                                                        runway.getFlightsAhead(flight.getId()));
+                                                return null;
                                             })));
                             return null;
                         }, handlersLock.readLock());
