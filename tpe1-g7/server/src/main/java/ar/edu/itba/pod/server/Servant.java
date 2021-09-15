@@ -194,11 +194,12 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                 }, runwayLock.writeLock()
         );
 
-        final ReassignmentLog log = new ReassignmentLog();
+        long assignedCount = 0;
+        List<String> failed = new ArrayList<>();
         for (Flight flight : flights) {
             try {
                 requestRunway(flight);
-                log.incrementAssigned();
+                assignedCount++;
             } catch (NoSuchRunwayException e) {
                 tryLockWithTimeout(() -> {
                     callbackHandlers.get(flight.getId()).forEach((handler) -> {
@@ -212,10 +213,10 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                     callbackHandlers.remove(flight.getId());
                     return null;
                 }, handlersLock.writeLock());
-                log.addToFailed(flight.getId());
+                failed.add(flight.getId());
             }
         }
-        return log;
+        return new ReassignmentLog(assignedCount, failed);
     }
 
     @Override

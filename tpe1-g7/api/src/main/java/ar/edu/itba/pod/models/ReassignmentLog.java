@@ -8,12 +8,12 @@ public class ReassignmentLog implements Serializable {
     private long assignedCount;
     private final List<String> failed;
 
-    public ReassignmentLog() {
-        this.assignedCount = 0;
-        this.failed = new ArrayList<>();
+    public ReassignmentLog(long assignedCount, List<String> failed) {
+        this.assignedCount = assignedCount;
+        this.failed = failed;
     }
 
-    public long getAssigned() {
+    public long getAssignedCount() {
         return assignedCount;
     }
 
@@ -21,11 +21,4 @@ public class ReassignmentLog implements Serializable {
         return failed;
     }
 
-    public void incrementAssigned() {
-        assignedCount++;
-    }
-
-    public void addToFailed(final String flightId) {
-        failed.add(flightId);
-    }
 }
