@@ -42,13 +42,21 @@ public class ManagementClient {
 
         switch (action) {
             case "reorder":
-                ReassignmentLog log = service.rearrangeDepartures();
-                log.getFailed().forEach(f -> logger.info(String.format("Cannot assign Flight %s.", f)));
-                logger.info(String.format("%d flights assigned.", log.getAssignedCount()));
+                try {
+                    ReassignmentLog log = service.rearrangeDepartures();
+                    log.getFailed().forEach(f -> logger.info(String.format("Cannot assign Flight %s.", f)));
+                    logger.info(String.format("%d flights assigned.", log.getAssignedCount()));
+                } catch (Exception e) {
+                    logger.error("Unknown error.");
+                }
                 break;
             case "takeOff":
-                service.issueDeparture();
-                logger.info("Flights in runways departed.");
+                try {
+                    service.issueDeparture();
+                    logger.info("Flights in runways departed.");
+                } catch (Exception e) {
+                    logger.error("Unknown error.");
+                }
                 break;
             case "add":
                 if (runway == null) {
@@ -69,6 +77,8 @@ public class ManagementClient {
                     logger.info("Runway " + runway + " is open.");
                 } catch (RunwayAlreadyExistsException e) {
                     logger.info("Runway " + runway + " already exists.");
+                } catch (Exception e) {
+                    logger.error("Unknown error.");
                 }
                 break;
             case "open":
@@ -90,10 +100,12 @@ public class ManagementClient {
                     logger.info("Runway " + runway + " is " + (service.isRunwayOpen(runway) ? "open." : "closed."));
                 } catch (NoSuchRunwayException e) {
                     logger.error("Runway " + runway + " not found.");
+                } catch (Exception e) {
+                    logger.error("Unknown error.");
                 }
                 break;
             default:
-                logger.error("Invalid action");
+                logger.error("Invalid action.");
         }
     }
 
@@ -109,6 +121,8 @@ public class ManagementClient {
             logger.info("Runway " + runway + " not found.");
         } catch (IllegalStateException e) {
             logger.info("Runway " + runway + " is already " + (openRunway ? "open." : "closed."));
+        } catch (Exception e) {
+            logger.error("Unknown error.");
         }
     }
 

@@ -61,13 +61,17 @@ public class DepartureQueryClient {
         final DepartureQueryService service = (DepartureQueryService) Naming.lookup("//" + serverAddress + "/departure_query");
 
         final List<DepartureData> queryResult;
-
-        if (airline != null) {
-            queryResult = service.getAirlineDepartures(airline);
-        } else if (runway != null) {
-            queryResult = service.getRunwayDepartures(runway);
-        } else {
-            queryResult = service.getAllDepartures();
+        try {
+            if (airline != null) {
+                queryResult = service.getAirlineDepartures(airline);
+            } else if (runway != null) {
+                queryResult = service.getRunwayDepartures(runway);
+            } else {
+                queryResult = service.getAllDepartures();
+            }
+        } catch (Exception e) {
+            logger.error("Unknown error.");
+            return;
         }
 
         final StringBuilder out = new StringBuilder();
