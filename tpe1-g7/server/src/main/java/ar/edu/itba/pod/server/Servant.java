@@ -51,7 +51,8 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                     return callable.call();
                 }
             }
-        } catch (RemoteException | RunwayAlreadyExistsException | NoSuchRunwayException | IllegalStateException e) {
+        } catch (RemoteException | RunwayAlreadyExistsException | NoSuchRunwayException |
+                NoSuchFlightException | IllegalStateException e) {
             throw e;
         } catch (Exception e) {
             throw new ServerError("Unknown error", new Error(new IllegalMonitorStateException()));
