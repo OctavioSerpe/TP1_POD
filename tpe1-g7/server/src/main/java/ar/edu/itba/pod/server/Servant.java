@@ -226,8 +226,6 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
 
         // First, we check the flight addressed exists
         tryLockWithTimeout(() -> {
-            // TODO: Excepcion distinta para cuando no matchea la aerolinea ?
-            // TODO: Excepcion distinta para cuando el vuelo EXISTE en el history pero no en la queue (no esta esperando a despegar) ?
             runwayMap.values().stream()
                     .flatMap(runway -> runway.getDepartureQueue().stream())
                     .filter(f -> f.getId().equals(flightId) && f.getAirline().equals(airlineName))
