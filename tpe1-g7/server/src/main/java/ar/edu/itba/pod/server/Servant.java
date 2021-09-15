@@ -202,14 +202,10 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                 assignedCount++;
             } catch (NoSuchRunwayException e) {
                 tryLockWithTimeout(() -> {
-                    callbackHandlers.get(flight.getId()).forEach((handler) -> {
-                        try {
-                            handler.endProcess();
-                        } catch (RemoteException ex) {
-                            // TODO: Manejar excepcion bien
-                            ex.printStackTrace();
-                        }
-                    });
+                    callbackHandlers.get(flight.getId()).forEach(handler -> executor.submit(() -> {
+                        handler.endProcess();
+                        return null;
+                    }));
                     callbackHandlers.remove(flight.getId());
                     return null;
                 }, handlersLock.writeLock());
@@ -240,7 +236,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
         }, runwayLock.readLock());
 
         tryLockWithTimeout(() -> {
-            List<FlightTrackingCallbackHandler> handlers = callbackHandlers.computeIfAbsent(flightId, k -> new LinkedList<>());
+            final List<FlightTrackingCallbackHandler> handlers = callbackHandlers.computeIfAbsent(flightId, k -> new LinkedList<>());
             handlers.add(handler);
             return null;
         }, handlersLock.writeLock());
@@ -249,6 +245,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     @Override
     public void requestRunway(final String flightId, final String destinationAirportId, final String airlineName,
                               final RunwayCategory minimumCategory) throws RemoteException, NoSuchRunwayException {
+
         if (flightId == null || destinationAirportId == null || airlineName == null | minimumCategory == null)
             throw new IllegalArgumentException("flight ID, destination airport ID, airline name and minimum runway category MUST NOT be null");
 
@@ -270,13 +267,10 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
             Optional.ofNullable(callbackHandlers.get(flight.getId()))
                     .ifPresent(handlers -> handlers
                             .forEach(handler -> executor.submit(() -> {
-                                try {
-                                    handler.onRunwayAssignment(flight.getId(), flight.getDestinationAirportId(),
-                                            runway.getName(), runway.getFlightsAhead(flight.getId()));
-                                } catch (RemoteException e) {
-                                    // TODO: Manejar excepcion bien
-                                    e.printStackTrace();
-                                }
+                                // convierto a callable devolviendo null, el resultado no debiera importar
+                                handler.onRunwayAssignment(flight.getId(), flight.getDestinationAirportId(),
+                                        runway.getName(), runway.getFlightsAhead(flight.getId()));
+                                return null;
                             })));
             return null;
         }, handlersLock.readLock());
