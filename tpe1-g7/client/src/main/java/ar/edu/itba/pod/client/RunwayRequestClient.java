@@ -60,9 +60,6 @@ public class RunwayRequestClient {
                 assignedFlightsCount++;
             } catch (NoSuchRunwayException e) {
                 System.out.printf("Cannot assign Flight %s.\n", flightData[0]);
-            } catch (RemoteException e) {
-                e.printStackTrace();
-                // TODO ????
             }
         }
 

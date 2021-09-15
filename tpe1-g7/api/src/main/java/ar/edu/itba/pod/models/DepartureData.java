@@ -5,7 +5,6 @@ import java.time.LocalDateTime;
 
 public class DepartureData implements Serializable {
 
-    // por decision de diseño no se expone flight al usuario sino esta clase pojo
     final private long flightsBeforeDeparture;
     final private String runwayName;
     final private String flightId;

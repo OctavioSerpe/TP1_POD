@@ -26,19 +26,26 @@ public class DepartureQueryClient {
         String runway = System.getProperty("runway");
         String outPath = System.getProperty("outPath");
 
-        // TODO: Cambiar validaciones a estilo de FlightTrackingClient
+        String errorMessage = "";
         if (serverAddress == null) {
-            throw new IllegalArgumentException("Missing server address and port. Please specify them with -DserverAddress=xx.xx.xx.xx:yyyy when running from the command line");
-        } else if (outPath == null) {
-            throw new IllegalArgumentException("Missing file path for query output. Please specify it with -DoutPath=fileName when running from the command line");
-        } else if (airline != null && runway != null) {
-            throw new IllegalArgumentException("Invalid query. Please specify ONLY airline, runway name or neither");
+            errorMessage += "Missing server address and port. Please specify them with -DserverAddress=xx.xx.xx.xx:yyyy when running from the command line";
+        }
+        if (outPath == null) {
+            errorMessage += "Missing file path for query output. Please specify it with -DoutPath=fileName when running from the command line";
+        }
+        if (airline != null && runway != null) {
+            errorMessage += "Invalid query. Please specify ONLY airline, runway name or neither";
+        }
+
+        if (errorMessage.length() > 0) {
+            System.out.println(errorMessage);
+            return;
         }
 
         File outFile = new File(outPath);
         try {
-            if (!outFile.createNewFile()){
-                // TODO: Preguntar si desea pisar el archivo o no
+            if (!outFile.createNewFile()) {
+                throw new IllegalArgumentException("Invalid query. Please specify a path to an output file that does not exists.");
             }
         } catch (IOException e) {
             logger.error("Error while creating file. Make sure the given path for the file is valid and writeable");

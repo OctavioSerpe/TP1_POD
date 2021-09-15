@@ -143,7 +143,6 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                                 .ifPresent(handlers -> {
                                     handlers.forEach(handler -> executor.submit(() ->
                                     {
-                                        // convierto a callable devolviendo null, el resultado no debiera importar
                                         handler.onDeparture(
                                                 departureFlight.getId(),
                                                 departureFlight.getDestinationAirportId(),
@@ -164,7 +163,6 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                             Optional.ofNullable(callbackHandlers.get(flight.getId()))
                                     .ifPresent(handlers -> handlers
                                             .forEach(handler -> executor.submit(() -> {
-                                                // convierto a callable devolviendo null, el resultado no debiera importar
                                                 handler.onQueuePositionUpdate(
                                                         flight.getId(),
                                                         flight.getDestinationAirportId(),
@@ -235,7 +233,8 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
         }, runwayLock.readLock());
 
         tryLockWithTimeout(() -> {
-            final List<FlightTrackingCallbackHandler> handlers = callbackHandlers.computeIfAbsent(flightId, k -> new LinkedList<>());
+            final List<FlightTrackingCallbackHandler> handlers = callbackHandlers
+                    .computeIfAbsent(flightId, k -> new LinkedList<>());
             handlers.add(handler);
             return null;
         }, handlersLock.writeLock());
@@ -266,7 +265,6 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
             Optional.ofNullable(callbackHandlers.get(flight.getId()))
                     .ifPresent(handlers -> handlers
                             .forEach(handler -> executor.submit(() -> {
-                                // convierto a callable devolviendo null, el resultado no debiera importar
                                 handler.onRunwayAssignment(flight.getId(), flight.getDestinationAirportId(),
                                         runway.getName(), runway.getFlightsAhead(flight.getId()));
                                 return null;
