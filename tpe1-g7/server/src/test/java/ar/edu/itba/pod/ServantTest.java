@@ -5,35 +5,26 @@ import ar.edu.itba.pod.exceptions.RunwayAlreadyExistsException;
 import ar.edu.itba.pod.models.DepartureData;
 import ar.edu.itba.pod.models.RunwayCategory;
 import ar.edu.itba.pod.server.Servant;
-import ar.edu.itba.pod.server.models.Flight;
-import ar.edu.itba.pod.server.models.Runway;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.function.ThrowingRunnable;
 
+import java.lang.reflect.Field;
 import java.rmi.RemoteException;
-import java.sql.Time;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.*;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
+import static org.mockito.Mockito.*;
+
 public class ServantTest {
 
-    static private Servant servant;
-    static private ExecutorService executorService;
     static final private int N_THREADS = 40;
-    static private List<String> runwayNames = Arrays.asList("MANAGEMENT RUNWAY", "QUERY RUNWAY", "TRACKING RUNWAY", "DEPARTURE RUNWAY",
-            "ALU RUNWAY", "LINUX RUNWAY");
-    static private List<String> airlinesNames = Arrays.asList("MANAGEMENT AIRLINE", "QUERY AIRLINE", "TRACKING AIRLINE", "DEPARTURE AIRLINE");
     static final private long AWAIT_TERMINATION_TIMEOUT = 60L;
     static final private long TIMEOUT = 5L;
     static final private TimeUnit TIME_UNIT = TimeUnit.SECONDS;
@@ -45,6 +36,11 @@ public class ServantTest {
     static final private int TOTAL_OPENED_RUNWAYS = 2000;
     static final private int TOTAL_RUNWAYS = 4;
     static final private Supplier<ExecutorService> executorServiceSupplier = () -> Executors.newFixedThreadPool(N_THREADS);
+    static private Servant servant;
+    static private ExecutorService executorService;
+    static private List<String> runwayNames = Arrays.asList("MANAGEMENT RUNWAY", "QUERY RUNWAY", "TRACKING RUNWAY", "DEPARTURE RUNWAY",
+            "ALU RUNWAY", "LINUX RUNWAY");
+    static private List<String> airlinesNames = Arrays.asList("MANAGEMENT AIRLINE", "QUERY AIRLINE", "TRACKING AIRLINE", "DEPARTURE AIRLINE");
 
     @Before
     public void init() {
@@ -97,7 +93,7 @@ public class ServantTest {
                 f.getRunwayName().equals(RUNWAY_NAME)));
 
         // comparo tanto la fecha de salida como los vuelos previos, dado que los devuelve ordenados
-        for(DepartureData data : departureData) {
+        for (DepartureData data : departureData) {
             Assert.assertTrue(departedOnCopy.isEqual(data.getDepartedOn()) ||
                     departedOnCopy.isBefore(data.getDepartedOn()));
             Assert.assertEquals(flightsDeparted++, data.getFlightsBeforeDeparture());
@@ -115,7 +111,7 @@ public class ServantTest {
         // reseteo
         departedOnCopy = departedOn;
         flightsDeparted = 0;
-        for(DepartureData data : departureData) {
+        for (DepartureData data : departureData) {
             Assert.assertTrue(departedOnCopy.isEqual(data.getDepartedOn()) ||
                     departedOnCopy.isBefore(data.getDepartedOn()));
             Assert.assertEquals(flightsDeparted++, data.getFlightsBeforeDeparture());
@@ -132,7 +128,7 @@ public class ServantTest {
 
         departedOnCopy = departedOn;
         flightsDeparted = 0;
-        for(DepartureData data : departureData) {
+        for (DepartureData data : departureData) {
             Assert.assertTrue(departedOnCopy.isEqual(data.getDepartedOn()) ||
                     departedOnCopy.isBefore(data.getDepartedOn()));
             Assert.assertEquals(flightsDeparted++, data.getFlightsBeforeDeparture());
@@ -449,5 +445,96 @@ public class ServantTest {
     @Test
     public void testGetRunwayDeparturesExceptions() {
         Assert.assertThrows(NoSuchRunwayException.class, () -> servant.getRunwayDepartures(RUNWAY_NAME));
+    }
+
+    /*
+     * El test busca forzar una reasignación de pista y comprobar el llamado
+     * al callback que corresponde
+     */
+    @Test
+    public void testCallbackOnRunwayAssignment() throws RemoteException {
+        FlightTrackingCallbackHandler handler = mock(FlightTrackingCallbackHandler.class);
+
+        servant.addRunway(RUNWAY_NAME, RunwayCategory.A);
+        servant.requestRunway(FLIGHT_ID, DESTINATION_AIRPORT_ID, AIRLINE_NAME, RunwayCategory.A);
+
+        servant.subscribe(FLIGHT_ID, AIRLINE_NAME, handler);
+
+        servant.addRunway(RUNWAY_NAME + "2", RunwayCategory.A);
+        servant.closeRunway(RUNWAY_NAME);
+
+        servant.rearrangeDepartures();
+
+        verify(handler, times(1)).onRunwayAssignment(anyString(), anyString(), anyString(), anyLong());
+    }
+
+    /*
+     * El test busca forzar un cambio en la cola para un cierto vuelo y verificar que se llame
+     * al callback que corresponde
+     */
+    @Test
+    public void testCallbackOnQueuePositionUpdate() throws RemoteException, NoSuchFieldException, IllegalAccessException {
+        FlightTrackingCallbackHandler handler = mock(FlightTrackingCallbackHandler.class);
+
+        servant.addRunway(RUNWAY_NAME, RunwayCategory.A);
+        servant.requestRunway(FLIGHT_ID, DESTINATION_AIRPORT_ID, AIRLINE_NAME, RunwayCategory.A);
+        servant.requestRunway(FLIGHT_ID + "2", DESTINATION_AIRPORT_ID, AIRLINE_NAME, RunwayCategory.A);
+
+        servant.subscribe(FLIGHT_ID + "2", AIRLINE_NAME, handler);
+
+        servant.issueDeparture();
+
+        Field executorField = Servant.class.getDeclaredField("executor");
+        executorField.setAccessible(true);
+        ExecutorService executor = (ExecutorService) executorField.get(servant);
+
+        verify(handler, times(1)).onQueuePositionUpdate(anyString(), anyString(), anyString(), anyLong());
+    }
+
+    /*
+     * El test verifica que se llame al callback de onDeparture() en caso de que
+     * el vuelo de interés despegue
+     */
+    @Test
+    public void testCallbackOnDeparture() throws RemoteException, NoSuchFieldException, IllegalAccessException {
+        FlightTrackingCallbackHandler handler = mock(FlightTrackingCallbackHandler.class);
+
+        servant.addRunway(RUNWAY_NAME, RunwayCategory.A);
+        servant.requestRunway(FLIGHT_ID, DESTINATION_AIRPORT_ID, AIRLINE_NAME, RunwayCategory.A);
+
+        servant.subscribe(FLIGHT_ID, AIRLINE_NAME, handler);
+
+        servant.issueDeparture();
+
+        Field executorField = Servant.class.getDeclaredField("executor");
+        executorField.setAccessible(true);
+        ExecutorService executor = (ExecutorService) executorField.get(servant);
+
+        verify(handler, times(1)).onDeparture(anyString(), anyString(), anyString());
+    }
+
+    /*
+     * El test verifica que se llame al callback de endProcess() en caso de que
+     * el vuelo de interés despegue, para finalizar la comunicación con el cliente
+     */
+    @Test
+    public void testProcessEndOnDeparture() throws RemoteException, NoSuchFieldException, IllegalAccessException, InterruptedException {
+        FlightTrackingCallbackHandler handler = mock(FlightTrackingCallbackHandler.class);
+
+        servant.addRunway(RUNWAY_NAME, RunwayCategory.A);
+        servant.requestRunway(FLIGHT_ID, DESTINATION_AIRPORT_ID, AIRLINE_NAME, RunwayCategory.A);
+
+        servant.subscribe(FLIGHT_ID, AIRLINE_NAME, handler);
+
+        servant.issueDeparture();
+
+        Field executorField = Servant.class.getDeclaredField("executor");
+        executorField.setAccessible(true);
+        ExecutorService executor = (ExecutorService) executorField.get(servant);
+
+        executor.shutdown();
+        executor.awaitTermination(AWAIT_TERMINATION_TIMEOUT, TIME_UNIT);
+
+        verify(handler, times(1)).endProcess();
     }
 }
