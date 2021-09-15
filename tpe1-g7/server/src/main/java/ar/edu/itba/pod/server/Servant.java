@@ -55,7 +55,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                 NoSuchFlightException | IllegalStateException e) {
             throw e;
         } catch (Exception e) {
-            throw new ServerError("Unknown error", new Error(new IllegalMonitorStateException()));
+            throw new ServerError("Unknown error", new Error(e));
         } finally {
             lock.unlock();
         }
@@ -182,7 +182,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
 
     @Override
     public ReassignmentLog rearrangeDepartures() throws RemoteException {
-        List<Flight> flights = new ArrayList<>();
+        final List<Flight> flights = new ArrayList<>();
 
         tryLockWithTimeout(() -> {
                     runwayMap.values().forEach(runway -> {
@@ -194,17 +194,18 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
         );
 
         long assignedCount = 0;
-        List<String> failed = new ArrayList<>();
+        final List<String> failed = new ArrayList<>();
         for (Flight flight : flights) {
             try {
                 requestRunway(flight);
                 assignedCount++;
             } catch (NoSuchRunwayException e) {
                 tryLockWithTimeout(() -> {
-                    callbackHandlers.get(flight.getId()).forEach(handler -> executor.submit(() -> {
-                        handler.endProcess();
-                        return null;
-                    }));
+                    Optional.ofNullable(callbackHandlers.get(flight.getId())).ifPresent((handlers) ->
+                            handlers.forEach(handler -> executor.submit(() -> {
+                                handler.endProcess();
+                                return null;
+                            })));
                     callbackHandlers.remove(flight.getId());
                     return null;
                 }, handlersLock.writeLock());
@@ -221,23 +222,33 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
         if (flightId == null || airlineName == null || handler == null)
             throw new IllegalArgumentException("Runway name, airline name and handler MUST NOT be null");
 
-
-        // First, we check the flight addressed exists
         tryLockWithTimeout(() -> {
-            runwayMap.values().stream()
-                    .flatMap(runway -> runway.getDepartureQueue().stream())
-                    .filter(f -> f.getId().equals(flightId) && f.getAirline().equals(airlineName))
-                    .findFirst()
-                    .orElseThrow(NoSuchFlightException::new);
-            return null;
-        }, runwayLock.readLock());
+                    final List<String> callbackParams = new ArrayList<>();
+                    runwayMap.values().stream()
+                            .filter(r -> r.getDepartureQueue().stream().anyMatch(f -> {
+                                if (f.getId().equals(flightId) && f.getAirline().equals(airlineName)) {
+                                    callbackParams.add(f.getDestinationAirportId());
+                                    callbackParams.add(r.getName());
+                                    callbackParams.add(String.valueOf(f.getFlightsBeforeDeparture()));
+                                    return true;
+                                }
+                                return false;
+                            })).findFirst().orElseThrow(NoSuchFlightException::new);
 
-        tryLockWithTimeout(() -> {
-            final List<FlightTrackingCallbackHandler> handlers = callbackHandlers
-                    .computeIfAbsent(flightId, k -> new LinkedList<>());
-            handlers.add(handler);
-            return null;
-        }, handlersLock.writeLock());
+                    tryLockWithTimeout(() -> {
+                        final List<FlightTrackingCallbackHandler> handlers = callbackHandlers
+                                .computeIfAbsent(flightId, k -> new LinkedList<>());
+                        handlers.add(handler);
+                        handler.onRunwayAssignment(flightId,
+                                callbackParams.get(0),
+                                callbackParams.get(1),
+                                Long.parseLong(callbackParams.get(2)));
+                        return null;
+                    }, handlersLock.writeLock());
+
+                    return null;
+                },
+                runwayLock.readLock());
     }
 
     @Override
@@ -252,7 +263,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
 
     private void requestRunway(final Flight flight)
             throws RemoteException, NoSuchRunwayException {
-        Runway runway = tryLockWithTimeout(() -> {
+        final Runway runway = tryLockWithTimeout(() -> {
             Runway answer = runwayMap.values().stream()
                     .filter(r -> r.getCategory().compareTo(flight.getCategory()) >= 0 && r.isOpen())
                     .min(Comparator.comparing(Runway::getDepartureQueueSize).thenComparing(Runway::getCategory)

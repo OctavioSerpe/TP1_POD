@@ -3,6 +3,8 @@ package ar.edu.itba.pod.client;
 import ar.edu.itba.pod.FlightTrackingCallbackHandler;
 import ar.edu.itba.pod.FlightTrackingService;
 import ar.edu.itba.pod.client.handlers.LoggerFlightTrackingCallbackHandler;
+import ar.edu.itba.pod.exceptions.NoSuchFlightException;
+import ar.edu.itba.pod.exceptions.NoSuchRunwayException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,9 +18,9 @@ public class FlightTrackingClient {
     private static final Logger logger = LoggerFactory.getLogger(FlightTrackingClient.class);
 
     public static void main(String[] args) throws MalformedURLException, NotBoundException, RemoteException {
-        String serverAddress = System.getProperty("serverAddress");
-        String airline = System.getProperty("airline");
-        String flightId = System.getProperty("flightCode");
+        final String serverAddress = System.getProperty("serverAddress");
+        final String airline = System.getProperty("airline");
+        final String flightId = System.getProperty("flightCode");
 
         String errorMessage = "";
         if (serverAddress == null) {
@@ -32,7 +34,7 @@ public class FlightTrackingClient {
         }
 
         if (errorMessage.length() > 0) {
-            System.out.println(errorMessage);
+            logger.info(errorMessage);
             return;
         }
 
@@ -42,7 +44,11 @@ public class FlightTrackingClient {
 
         UnicastRemoteObject.exportObject(handler, 0);
 
-        service.subscribe(flightId, airline, handler);
+        try {
+            service.subscribe(flightId, airline, handler);
+        } catch (NoSuchFlightException e) {
+            logger.error("Flight " + flightId + " of airline: " + airline + " does not exist.");
+        }
     }
 
 }

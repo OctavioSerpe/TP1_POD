@@ -21,31 +21,31 @@ public class DepartureQueryClient {
     private static final Logger logger = LoggerFactory.getLogger(DepartureQueryClient.class);
 
     public static void main(String[] args) throws MalformedURLException, NotBoundException, RemoteException {
-        String serverAddress = System.getProperty("serverAddress");
-        String airline = System.getProperty("airline");
-        String runway = System.getProperty("runway");
-        String outPath = System.getProperty("outPath");
+        final String serverAddress = System.getProperty("serverAddress");
+        final String airline = System.getProperty("airline");
+        final String runway = System.getProperty("runway");
+        final String outPath = System.getProperty("outPath");
 
         String errorMessage = "";
         if (serverAddress == null) {
             errorMessage += "Missing server address and port. Please specify them with -DserverAddress=xx.xx.xx.xx:yyyy when running from the command line";
         }
         if (outPath == null) {
-            errorMessage += "Missing file path for query output. Please specify it with -DoutPath=fileName when running from the command line";
+            errorMessage += "\nMissing file path for query output. Please specify it with -DoutPath=fileName when running from the command line";
         }
         if (airline != null && runway != null) {
-            errorMessage += "Invalid query. Please specify ONLY airline, runway name or neither";
+            errorMessage += "\nInvalid query. Please specify ONLY airline, runway name or neither";
         }
 
         if (errorMessage.length() > 0) {
-            System.out.println(errorMessage);
+            logger.error(errorMessage);
             return;
         }
 
-        File outFile = new File(outPath);
+        final File outFile = new File(outPath);
         try {
             if (!outFile.createNewFile()) {
-                throw new IllegalArgumentException("Invalid query. Please specify a path to an output file that does not exists.");
+                logger.error("Invalid query. Please specify a path to an output file that does not exists.");
             }
         } catch (IOException e) {
             logger.error("Error while creating file. Make sure the given path for the file is valid and writeable");
@@ -58,9 +58,9 @@ public class DepartureQueryClient {
         }
 
         logger.info("tpe1-g7 departure query Starting ...");
-        DepartureQueryService service = (DepartureQueryService) Naming.lookup("//" + serverAddress + "/departure_query");
+        final DepartureQueryService service = (DepartureQueryService) Naming.lookup("//" + serverAddress + "/departure_query");
 
-        List<DepartureData> queryResult;
+        final List<DepartureData> queryResult;
 
         if (airline != null) {
             queryResult = service.getAirlineDepartures(airline);
@@ -70,7 +70,7 @@ public class DepartureQueryClient {
             queryResult = service.getAllDepartures();
         }
 
-        StringBuilder out = new StringBuilder();
+        final StringBuilder out = new StringBuilder();
 
         out.append("TakeOffOrders;RunwayName;FlightCode;DestinyAirport;AirlineName\n");
         queryResult.forEach(departure -> out.append(String.format("%d;%s;%s;%s;%s\n",

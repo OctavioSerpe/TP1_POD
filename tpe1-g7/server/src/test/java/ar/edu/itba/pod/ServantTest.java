@@ -534,7 +534,7 @@ public class ServantTest {
         executor.shutdown();
         executor.awaitTermination(AWAIT_TERMINATION_TIMEOUT, TIME_UNIT);
 
-        verify(handler, times(1)).onRunwayAssignment(anyString(), anyString(), anyString(), anyLong());
+        verify(handler, times(2)).onRunwayAssignment(anyString(), anyString(), anyString(), anyLong());
     }
 
     /*

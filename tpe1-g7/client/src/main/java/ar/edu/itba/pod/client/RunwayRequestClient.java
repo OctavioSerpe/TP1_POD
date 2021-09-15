@@ -21,22 +21,29 @@ public class RunwayRequestClient {
     private static final Logger logger = LoggerFactory.getLogger(RunwayRequestClient.class);
 
     public static void main(String[] args) throws MalformedURLException, NotBoundException, RemoteException {
-        String serverAddress = System.getProperty("serverAddress");
-        String inPath = System.getProperty("inPath");
+        final String serverAddress = System.getProperty("serverAddress");
+        final String inPath = System.getProperty("inPath");
 
+        String errorMessage = "";
         if (serverAddress == null) {
-            throw new IllegalArgumentException("Missing server address and port. Please specify them with -DserverAddress=xx.xx.xx.xx:yyyy when running from the command line");
-        } else if (inPath == null) {
-            throw new IllegalArgumentException("Missing file path for query input. Please specify it with -DinPath=fileName when running from the command line");
+            errorMessage += "Missing server address and port. Please specify them with -DserverAddress=xx.xx.xx.xx:yyyy when running from the command line";
+        }
+        if (inPath == null) {
+            errorMessage += "\nMissing file path for query input. Please specify it with -DinPath=fileName when running from the command line";
         }
 
-        File inFile = new File(inPath);
+        if (errorMessage.length() > 0) {
+            logger.error(errorMessage);
+            return;
+        }
+
+        final File inFile = new File(inPath);
         if (!inFile.canRead()) {
             logger.error("Error: file is not readable. Make sure the given path for the file is readable");
             return;
         }
         logger.info("tpe1-g7 runway request client Starting ...");
-        RunwayRequestService service = (RunwayRequestService) Naming.lookup("//" + serverAddress + "/runway_request");
+        final RunwayRequestService service = (RunwayRequestService) Naming.lookup("//" + serverAddress + "/runway_request");
 
         List<String> lines;
         try {
@@ -59,10 +66,10 @@ public class RunwayRequestClient {
                 );
                 assignedFlightsCount++;
             } catch (NoSuchRunwayException e) {
-                System.out.printf("Cannot assign Flight %s.\n", flightData[0]);
+                logger.info(String.format("Cannot assign Flight %s.", flightData[0]));
             }
         }
 
-        System.out.println(assignedFlightsCount + " flights assigned.");
+        logger.info(assignedFlightsCount + " flights assigned.");
     }
 }

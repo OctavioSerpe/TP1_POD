@@ -16,59 +16,84 @@ import static ar.edu.itba.pod.client.utils.RunwayCategoryUtils.getRunwayCategory
 
 public class ManagementClient {
     private static final Logger logger = LoggerFactory.getLogger(ManagementClient.class);
+    private static final String MISSING_RUNWAY_NAME = "Missing runway name. Please specify it with -Drunway=runwayName when running from the command line";
 
     public static void main(String[] args) throws MalformedURLException, NotBoundException, RemoteException {
-        String serverAddress = System.getProperty("serverAddress");
-        String action = System.getProperty("action");
-        String runway = System.getProperty("runway");
-        String minCategoryStr = System.getProperty("category");
+        final String serverAddress = System.getProperty("serverAddress");
+        final String action = System.getProperty("action");
+        final String runway = System.getProperty("runway");
+        final String minCategoryStr = System.getProperty("category");
 
+        String errorMessage = "";
         if (serverAddress == null) {
-            throw new IllegalArgumentException("Missing server address and port. Please specify them with -DserverAddress=xx.xx.xx.xx:yyyy when running from the command line");
-        } else if (action == null) {
-            throw new IllegalArgumentException("Missing action to do. Please specify it with -Daction=action when running from the command line");
+            errorMessage += "Missing server address and port. Please specify them with -DserverAddress=xx.xx.xx.xx:yyyy when running from the command line";
+        }
+        if (action == null) {
+            errorMessage += "\nMissing action to do. Please specify it with -Daction=action when running from the command line";
+        }
+
+        if (errorMessage.length() > 0) {
+            logger.error(errorMessage);
+            return;
         }
 
         logger.info("tpe1-g7 management Starting ...");
-        ManagementService service = (ManagementService) Naming.lookup("//" + serverAddress + "/management");
+        final ManagementService service = (ManagementService) Naming.lookup("//" + serverAddress + "/management");
 
         switch (action) {
             case "reorder":
                 ReassignmentLog log = service.rearrangeDepartures();
-                log.getFailed().forEach(f -> System.out.printf("Cannot assign Flight %s.\n", f));
-                System.out.printf("%d flights assigned.\n", log.getAssignedCount());
+                log.getFailed().forEach(f -> logger.info(String.format("Cannot assign Flight %s.", f)));
+                logger.info(String.format("%d flights assigned.", log.getAssignedCount()));
                 break;
             case "takeOff":
                 service.issueDeparture();
-                System.out.println("Flights in runways departed.");
+                logger.info("Flights in runways departed.");
                 break;
             case "add":
-                checkRunwayIsNotNull(runway);
-                if (minCategoryStr == null)
-                    throw new IllegalArgumentException("Missing category for new runway. Please specify it with -Dcategory=minCategory when running from the command line");
+                if (runway == null) {
+                    errorMessage += MISSING_RUNWAY_NAME;
+                }
+
+                if (minCategoryStr == null) {
+                    errorMessage += "\nMissing category for new runway. Please specify it with -Dcategory=minCategory when running from the command line";
+                }
+
+                if (errorMessage.length() > 0) {
+                    logger.error(errorMessage);
+                    return;
+                }
 
                 try {
                     service.addRunway(runway, getRunwayCategory(minCategoryStr));
-                    System.out.println("Runway " + runway + " is open.");
+                    logger.info("Runway " + runway + " is open.");
                 } catch (RunwayAlreadyExistsException e) {
-                    System.out.println("Runway " + runway + " already exists.");
+                    logger.info("Runway " + runway + " already exists.");
                 }
                 break;
             case "open":
             case "close":
-                checkRunwayIsNotNull(runway);
+                if (runway == null) {
+                    logger.error(MISSING_RUNWAY_NAME);
+                    return;
+                }
+
                 switchRunwayState(runway, service, action.equals("open"));
                 break;
             case "status":
-                checkRunwayIsNotNull(runway);
+                if (runway == null) {
+                    logger.error(MISSING_RUNWAY_NAME);
+                    return;
+                }
+
                 try {
-                    System.out.println("Runway " + runway + " is " + (service.isRunwayOpen(runway) ? "open." : "closed."));
+                    logger.info("Runway " + runway + " is " + (service.isRunwayOpen(runway) ? "open." : "closed."));
                 } catch (NoSuchRunwayException e) {
-                    System.out.println("Runway " + runway + " not found.");
+                    logger.error("Runway " + runway + " not found.");
                 }
                 break;
             default:
-                throw new IllegalArgumentException("Invalid action");
+                logger.error("Invalid action");
         }
     }
 
@@ -79,16 +104,12 @@ public class ManagementClient {
             } else {
                 service.closeRunway(runway);
             }
-            System.out.println("Runway " + runway + " is " + (openRunway ? "open." : "closed."));
+            logger.info("Runway " + runway + " is " + (openRunway ? "open." : "closed."));
         } catch (NoSuchRunwayException e) {
-            System.out.println("Runway " + runway + " not found.");
+            logger.info("Runway " + runway + " not found.");
         } catch (IllegalStateException e) {
-            System.out.println("Runway " + runway + " is already " + (openRunway ? "open." : "closed."));
+            logger.info("Runway " + runway + " is already " + (openRunway ? "open." : "closed."));
         }
     }
 
-    private static void checkRunwayIsNotNull(String runway) {
-        if (runway == null)
-            throw new IllegalArgumentException("Missing runway name. Please specify it with -Drunway=runwayName when running from the command line");
-    }
 }
