@@ -181,7 +181,6 @@ public class ServantTest {
             });
         });
 
-        // asi chequeamos las excepciones con un throwing runnable
         final List<Future<Object>> futures = executorService.invokeAll(callables);
         for (Future<Object> future : futures) {
             Assert.assertThrows(ExecutionException.class, () -> future.get(TIMEOUT, TIME_UNIT));
@@ -560,6 +559,7 @@ public class ServantTest {
         executor.shutdown();
         executor.awaitTermination(AWAIT_TERMINATION_TIMEOUT, TIME_UNIT);
 
+        verify(handler, times(1)).onRunwayAssignment(anyString(), anyString(), anyString(), anyLong());
         verify(handler, times(1)).onQueuePositionUpdate(anyString(), anyString(), anyString(), anyLong());
     }
 
@@ -585,6 +585,7 @@ public class ServantTest {
         executor.shutdown();
         executor.awaitTermination(AWAIT_TERMINATION_TIMEOUT, TIME_UNIT);
 
+        verify(handler, times(1)).onRunwayAssignment(anyString(), anyString(), anyString(), anyLong());
         verify(handler, times(1)).onDeparture(anyString(), anyString(), anyString());
     }
 
@@ -610,6 +611,7 @@ public class ServantTest {
         executor.shutdown();
         executor.awaitTermination(AWAIT_TERMINATION_TIMEOUT, TIME_UNIT);
 
+        verify(handler, times(1)).onRunwayAssignment(anyString(), anyString(), anyString(), anyLong());
         verify(handler, times(1)).endProcess();
     }
 
