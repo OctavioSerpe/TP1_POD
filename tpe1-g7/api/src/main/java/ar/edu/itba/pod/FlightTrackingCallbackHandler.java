@@ -4,30 +4,30 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 
 /*
- * Interface used by FlightTrackingService to execute methods on an update in the status of one specific flight.
+ * Interfaz utilizada para registrar los callbacks del cliente
  */
 public interface FlightTrackingCallbackHandler extends Remote {
 
     /*
-     *   Method executed when the flight gets a runway assigned.
+     *  Callback cuando el vuelo fue asignado a una pista
      */
     void onRunwayAssignment(final String flightId, final String destination, final String runway, final long flightsAhead)
             throws RemoteException;
 
     /*
-     *   Method executed when the flight gets its position in the queue of runway updated.
+     *  Callback cuando el vuelo cambió su posicion en la cola de espera de la pista
      */
     void onQueuePositionUpdate(final String flightId, final String destination, final String runway, final long flightsAhead)
             throws RemoteException;
 
     /*
-     *   Method executed when the flight gets a runway assigned.
+     *  Callback cuando el vuelo despego
      */
     void onDeparture(final String flightId, final String destination, final String runway)
             throws RemoteException;
 
     /*
-     *   Method executed when the flight has to be ended.
+     *  Callback para eliminar el handler de callbacks
      */
     void endProcess()
             throws RemoteException;

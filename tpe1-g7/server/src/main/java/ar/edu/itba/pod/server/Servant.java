@@ -34,7 +34,7 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
     final private ReadWriteLock runwayLock;
     final private ReadWriteLock handlersLock;
 
-    static final private long LOCK_TIMEOUT = 10L;
+    static final private long LOCK_TIMEOUT = 5L;
     static final private TimeUnit LOCK_TIME_UNIT = TimeUnit.SECONDS;
     static final private int LOCK_RETRIES = 6;
 
