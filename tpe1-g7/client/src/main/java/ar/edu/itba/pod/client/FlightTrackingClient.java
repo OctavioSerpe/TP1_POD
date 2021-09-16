@@ -49,7 +49,7 @@ public class FlightTrackingClient {
         } catch (NoSuchFlightException e) {
             logger.error("Flight " + flightId + " of airline: " + airline + " does not exist.");
         } catch (Exception e) {
-            logger.error("Unknown error.");
+            logger.error("An unknown error has occurred.");
         }
     }
 

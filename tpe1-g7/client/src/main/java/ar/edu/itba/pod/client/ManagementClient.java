@@ -47,7 +47,8 @@ public class ManagementClient {
                     log.getFailed().forEach(f -> logger.info(String.format("Cannot assign Flight %s.", f)));
                     logger.info(String.format("%d flights assigned.", log.getAssignedCount()));
                 } catch (Exception e) {
-                    logger.error("Unknown error.");
+                    logger.error("An unknown error has occurred.");
+
                 }
                 break;
             case "takeOff":
@@ -55,7 +56,8 @@ public class ManagementClient {
                     service.issueDeparture();
                     logger.info("Flights in runways departed.");
                 } catch (Exception e) {
-                    logger.error("Unknown error.");
+                    logger.error("An unknown error has occurred.");
+
                 }
                 break;
             case "add":
@@ -78,7 +80,7 @@ public class ManagementClient {
                 } catch (RunwayAlreadyExistsException e) {
                     logger.info("Runway " + runway + " already exists.");
                 } catch (Exception e) {
-                    logger.error("Unknown error.");
+                    logger.error("An unknown error has occurred.");
                 }
                 break;
             case "open":
@@ -101,7 +103,7 @@ public class ManagementClient {
                 } catch (NoSuchRunwayException e) {
                     logger.error("Runway " + runway + " not found.");
                 } catch (Exception e) {
-                    logger.error("Unknown error.");
+                    logger.error("An unknown error has occurred.");
                 }
                 break;
             default:
@@ -122,7 +124,7 @@ public class ManagementClient {
         } catch (IllegalStateException e) {
             logger.info("Runway " + runway + " is already " + (openRunway ? "open." : "closed."));
         } catch (Exception e) {
-            logger.error("Unknown error.");
+            logger.error("An unknown error has occurred.");
         }
     }
 

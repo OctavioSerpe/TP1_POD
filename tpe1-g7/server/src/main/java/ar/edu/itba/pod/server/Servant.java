@@ -9,6 +9,8 @@ import ar.edu.itba.pod.models.ReassignmentLog;
 import ar.edu.itba.pod.models.RunwayCategory;
 import ar.edu.itba.pod.server.models.Flight;
 import ar.edu.itba.pod.server.models.Runway;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.rmi.RemoteException;
 import java.rmi.ServerError;
@@ -24,6 +26,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
 public class Servant implements ManagementService, DepartureQueryService, FlightTrackingService, RunwayRequestService {
+    private static final Logger logger = LoggerFactory.getLogger(Servant.class);
 
     final private Map<String, Runway> runwayMap;
     final private Map<String, List<FlightTrackingCallbackHandler>> callbackHandlers;
@@ -143,12 +146,16 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                                 .ifPresent(handlers -> {
                                     handlers.forEach(handler -> executor.submit(() ->
                                     {
-                                        handler.onDeparture(
-                                                departureFlight.getId(),
-                                                departureFlight.getDestinationAirportId(),
-                                                runway.getName());
-                                        handler.endProcess();
-                                        return null;
+                                        try {
+                                            handler.onDeparture(
+                                                    departureFlight.getId(),
+                                                    departureFlight.getDestinationAirportId(),
+                                                    runway.getName());
+                                            handler.endProcess();
+                                        } catch (RemoteException e) {
+                                            logger.error("An unknown error has occurred.");
+                                            logger.error(Arrays.toString(e.getStackTrace()));
+                                        }
                                     }));
                                     callbackHandlers.remove(departureFlight.getId());
                                 });
@@ -163,12 +170,16 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                             Optional.ofNullable(callbackHandlers.get(flight.getId()))
                                     .ifPresent(handlers -> handlers
                                             .forEach(handler -> executor.submit(() -> {
-                                                handler.onQueuePositionUpdate(
-                                                        flight.getId(),
-                                                        flight.getDestinationAirportId(),
-                                                        runway.getName(),
-                                                        runway.getFlightsAhead(flight.getId()));
-                                                return null;
+                                                try {
+                                                    handler.onQueuePositionUpdate(
+                                                            flight.getId(),
+                                                            flight.getDestinationAirportId(),
+                                                            runway.getName(),
+                                                            runway.getFlightsAhead(flight.getId()));
+                                                } catch (RemoteException e) {
+                                                    logger.error("An unknown error has occurred.");
+                                                    logger.error(Arrays.toString(e.getStackTrace()));
+                                                }
                                             })));
                             return null;
                         }, handlersLock.readLock());
@@ -199,12 +210,16 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
             try {
                 requestRunway(flight);
                 assignedCount++;
-            } catch (NoSuchRunwayException e) {
+            } catch (NoSuchRunwayException noSuchRunwayException) {
                 tryLockWithTimeout(() -> {
                     Optional.ofNullable(callbackHandlers.get(flight.getId())).ifPresent((handlers) ->
                             handlers.forEach(handler -> executor.submit(() -> {
-                                handler.endProcess();
-                                return null;
+                                try {
+                                    handler.endProcess();
+                                } catch (RemoteException e) {
+                                    logger.error("An unknown error has occurred.");
+                                    logger.error(Arrays.toString(e.getStackTrace()));
+                                }
                             })));
                     callbackHandlers.remove(flight.getId());
                     return null;
@@ -223,13 +238,14 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
             throw new IllegalArgumentException("Runway name, airline name and handler MUST NOT be null");
 
         tryLockWithTimeout(() -> {
-                    final List<String> callbackParams = new ArrayList<>();
+                    final RunwayAssignmentCallbackParameters callbackParams = new RunwayAssignmentCallbackParameters();
                     runwayMap.values().stream()
                             .filter(r -> r.getDepartureQueue().stream().anyMatch(f -> {
                                 if (f.getId().equals(flightId) && f.getAirline().equals(airlineName)) {
-                                    callbackParams.add(f.getDestinationAirportId());
-                                    callbackParams.add(r.getName());
-                                    callbackParams.add(String.valueOf(f.getFlightsBeforeDeparture()));
+                                    callbackParams.setFlightId(f.getId());
+                                    callbackParams.setDestinationAirportId(f.getDestinationAirportId());
+                                    callbackParams.setRunwayName(r.getName());
+                                    callbackParams.setFlightsAhead(r.getFlightsAhead(f.getId()));
                                     return true;
                                 }
                                 return false;
@@ -239,10 +255,11 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                         final List<FlightTrackingCallbackHandler> handlers = callbackHandlers
                                 .computeIfAbsent(flightId, k -> new LinkedList<>());
                         handlers.add(handler);
-                        handler.onRunwayAssignment(flightId,
-                                callbackParams.get(0),
-                                callbackParams.get(1),
-                                Long.parseLong(callbackParams.get(2)));
+                        handler.onRunwayAssignment(
+                                callbackParams.getFlightId(),
+                                callbackParams.getDestinationAirportId(),
+                                callbackParams.getRunwayName(),
+                                callbackParams.getFlightsAhead());
                         return null;
                     }, handlersLock.writeLock());
 
@@ -276,9 +293,13 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
             Optional.ofNullable(callbackHandlers.get(flight.getId()))
                     .ifPresent(handlers -> handlers
                             .forEach(handler -> executor.submit(() -> {
-                                handler.onRunwayAssignment(flight.getId(), flight.getDestinationAirportId(),
-                                        runway.getName(), runway.getFlightsAhead(flight.getId()));
-                                return null;
+                                try {
+                                    handler.onRunwayAssignment(flight.getId(), flight.getDestinationAirportId(),
+                                            runway.getName(), runway.getFlightsAhead(flight.getId()));
+                                } catch (RemoteException e) {
+                                    logger.error("An unknown error has occurred.");
+                                    logger.error(Arrays.toString(e.getStackTrace()));
+                                }
                             })));
             return null;
         }, handlersLock.readLock());
@@ -334,5 +355,47 @@ public class Servant implements ManagementService, DepartureQueryService, Flight
                         .sorted(Comparator.comparing(DepartureData::getDepartedOn))
                         .collect(Collectors.toList()),
                 runwayLock.readLock());
+    }
+
+    private class RunwayAssignmentCallbackParameters {
+        private long flightsAhead;
+        private String flightId;
+        private String destinationAirportId;
+        private String runwayName;
+
+        public RunwayAssignmentCallbackParameters() {
+        }
+
+        public void setFlightsAhead(long flightsAhead) {
+            this.flightsAhead = flightsAhead;
+        }
+
+        public void setFlightId(String flightId) {
+            this.flightId = flightId;
+        }
+
+        public void setDestinationAirportId(String destinationAirportId) {
+            this.destinationAirportId = destinationAirportId;
+        }
+
+        public void setRunwayName(String runwayName) {
+            this.runwayName = runwayName;
+        }
+
+        public long getFlightsAhead() {
+            return flightsAhead;
+        }
+
+        public String getFlightId() {
+            return flightId;
+        }
+
+        public String getDestinationAirportId() {
+            return destinationAirportId;
+        }
+
+        public String getRunwayName() {
+            return runwayName;
+        }
     }
 }

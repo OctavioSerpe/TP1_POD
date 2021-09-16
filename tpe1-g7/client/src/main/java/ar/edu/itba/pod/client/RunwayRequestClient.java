@@ -68,7 +68,7 @@ public class RunwayRequestClient {
             } catch (NoSuchRunwayException e) {
                 logger.error(String.format("Cannot assign Flight %s.", flightData[0]));
             } catch (Exception e) {
-                logger.error("Unknown error.");
+                logger.error("An unknown error has occurred.");
             }
         }
 

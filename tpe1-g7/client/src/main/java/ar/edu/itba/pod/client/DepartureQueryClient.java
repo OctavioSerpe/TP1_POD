@@ -70,7 +70,7 @@ public class DepartureQueryClient {
                 queryResult = service.getAllDepartures();
             }
         } catch (Exception e) {
-            logger.error("Unknown error.");
+            logger.error("An unknown error has occurred.");
             return;
         }
 
