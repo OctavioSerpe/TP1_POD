@@ -9,7 +9,6 @@
 - [Serpe, Octavio Javier](https://github.com/OctavioSerpe) - Legajo 60076
 - [Rodríguez, Manuel Joaquín](https://github.com/rodriguezmanueljoaquin) - Legajo 60258
 - [Arca, Gonzalo](https://github.com/gonzaloarca) - Legajo 60303
-- [Parma, Manuel Félix](https://github.com/manuelfparma) - Legajo 60425
 
 ## Tabla de contenidos
 
@@ -42,6 +41,8 @@ Luego, para descomprimir los `.jar` generados y otorgar permisos de ejecución, 
 ```bash
 $ ./pod-chmod-run.sh
 ```
+
+> IMPORTANTE: Comprobar que el script `pod-chmod-run.sh` tenga permisos de ejecución, lectura y escritura, ejecutando `chmod 700 pod-chmod-run.sh`
 
 ## Cómo ejecutar el proyecto
 
