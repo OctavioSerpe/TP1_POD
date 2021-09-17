@@ -42,7 +42,7 @@ Luego, para descomprimir los `.jar` generados y otorgar permisos de ejecución, 
 $ ./pod-chmod-run.sh
 ```
 
-> IMPORTANTE: Comprobar que el script `pod-chmod-run.sh` tenga permisos de ejecución, lectura y escritura, ejecutando `chmod 700 pod-chmod-run.sh`
+> IMPORTANTE: Comprobar que el script `pod-chmod-run.sh` tenga permisos de ejecución, lectura y escritura. Puede otorgar dichos permisos ejecutando `chmod 700 pod-chmod-run.sh`
 
 ## Cómo ejecutar el proyecto
 
