@@ -34,11 +34,10 @@ public class FlightTrackingClient {
         }
 
         if (errorMessage.length() > 0) {
-            logger.info(errorMessage);
+            logger.error(errorMessage);
             return;
         }
 
-        logger.info("tpe1-g7 tracking client Starting ...");
         final FlightTrackingService service = (FlightTrackingService) Naming.lookup("//" + serverAddress + "/flight_tracking");
         final FlightTrackingCallbackHandler handler = new LoggerFlightTrackingCallbackHandler();
 
@@ -48,8 +47,10 @@ public class FlightTrackingClient {
             service.subscribe(flightId, airline, handler);
         } catch (NoSuchFlightException e) {
             logger.error("Flight " + flightId + " of airline: " + airline + " does not exist.");
+            UnicastRemoteObject.unexportObject(handler, true);
         } catch (Exception e) {
             logger.error("An unknown error has occurred.");
+            UnicastRemoteObject.unexportObject(handler, true);
         }
     }
 

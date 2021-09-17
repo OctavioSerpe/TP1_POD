@@ -37,7 +37,6 @@ public class ManagementClient {
             return;
         }
 
-        logger.info("tpe1-g7 management Starting ...");
         final ManagementService service = (ManagementService) Naming.lookup("//" + serverAddress + "/management");
 
         switch (action) {
@@ -78,7 +77,9 @@ public class ManagementClient {
                     service.addRunway(runway, getRunwayCategory(minCategoryStr));
                     logger.info("Runway " + runway + " is open.");
                 } catch (RunwayAlreadyExistsException e) {
-                    logger.info("Runway " + runway + " already exists.");
+                    logger.error("Runway " + runway + " already exists.");
+                } catch (IllegalArgumentException e) {
+                    logger.error(e.getMessage());
                 } catch (Exception e) {
                     logger.error("An unknown error has occurred.");
                 }
@@ -120,9 +121,9 @@ public class ManagementClient {
             }
             logger.info("Runway " + runway + " is " + (openRunway ? "open." : "closed."));
         } catch (NoSuchRunwayException e) {
-            logger.info("Runway " + runway + " not found.");
+            logger.error("Runway " + runway + " not found.");
         } catch (IllegalStateException e) {
-            logger.info("Runway " + runway + " is already " + (openRunway ? "open." : "closed."));
+            logger.error("Runway " + runway + " is already " + (openRunway ? "open." : "closed."));
         } catch (Exception e) {
             logger.error("An unknown error has occurred.");
         }

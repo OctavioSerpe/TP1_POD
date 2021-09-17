@@ -12,7 +12,7 @@ public class Server {
     private static final Logger logger = LoggerFactory.getLogger(Server.class);
 
     public static void main(String[] args) throws RemoteException {
-        logger.info("tpe1-g7 Server Starting ...");
+        logger.info("tpe1-g7 Server starting ...");
 
         final Servant servant = new Servant();
         final Registry registry = LocateRegistry.getRegistry("localhost", 0);

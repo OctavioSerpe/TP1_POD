@@ -42,7 +42,6 @@ public class RunwayRequestClient {
             logger.error("Error: file is not readable. Make sure the given path for the file is readable");
             return;
         }
-        logger.info("tpe1-g7 runway request client Starting ...");
         final RunwayRequestService service = (RunwayRequestService) Naming.lookup("//" + serverAddress + "/runway_request");
 
         List<String> lines;

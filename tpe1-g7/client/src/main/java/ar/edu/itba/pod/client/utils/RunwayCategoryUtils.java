@@ -11,7 +11,7 @@ public class RunwayCategoryUtils {
             answer = RunwayCategory.valueOf(category);
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Invalid category. Should be one of the next: "
-                    + Arrays.toString(RunwayCategory.values()));
+                    + Arrays.toString(RunwayCategory.values()) + ".");
         }
         return answer;
     }
